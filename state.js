@@ -365,6 +365,10 @@ class GameStateManager {
     return this.state.teams || [];
   }
 
+  getTeam(teamId) {
+    return (this.state.teams || []).find(t => t.id === teamId) || null;
+  }
+
   getActiveTeam() {
     const teams = this.getTeams();
     return teams[this.state.activeTeamIndex] || teams[0];
@@ -671,6 +675,10 @@ class GameStateManager {
       reason: this.state.frozenReason
     });
     return this.state.isFrozen;
+  }
+
+  isGameFrozen() {
+    return !!(this.state && this.state.isFrozen);
   }
 
   toggleTeamBlock(teamId, forcedState = null) {

@@ -250,7 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check if player has permission to spin or play
   function canCurrentPlayerSpin() {
     // 1. Is game frozen?
-    if (window.gameStateManager.isGameFrozen()) {
+    const isFrozen = (window.gameStateManager && typeof window.gameStateManager.isGameFrozen === 'function')
+      ? window.gameStateManager.isGameFrozen()
+      : !!(window.gameStateManager && window.gameStateManager.getState() && window.gameStateManager.getState().isFrozen);
+
+    if (isFrozen) {
       alert(currentLang === 'ar' 
         ? '❄️ المسابقة متوقفة ومجمدة مؤقتاً بأمر المشرف.' 
         : '❄️ The game is temporarily paused by the admin.');
@@ -267,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Is team blocked?
-    if (window.gameStateManager.isTeamBlocked(myTeamId)) {
+    if (window.gameStateManager && typeof window.gameStateManager.isTeamBlocked === 'function' && window.gameStateManager.isTeamBlocked(myTeamId)) {
       const teams = window.gameStateManager.getTeams();
       const t = teams.find(team => team.id === myTeamId);
       const teamName = t ? t.name : myTeamId;
@@ -278,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 4. Is member individually blocked?
-    if (window.gameStateManager.isMemberBlocked(myTeamId, myPlayerName)) {
+    if (window.gameStateManager && typeof window.gameStateManager.isMemberBlocked === 'function' && window.gameStateManager.isMemberBlocked(myTeamId, myPlayerName)) {
       alert(currentLang === 'ar'
         ? `🚫 تم حظرك كلاعب (${myPlayerName}) بقرار من المشرف! لا يمكنك تدوير العجلة أو كسب النقاط حتى يتم فك الحظر.`
         : `🚫 Your player account (${myPlayerName}) is blocked by the admin!`);
@@ -815,12 +819,43 @@ document.addEventListener('DOMContentLoaded', () => {
     activityModalBackdrop.classList.add('active');
   }
 
-  // 1. Quick Quiz (Multiple Choice with -15 deduction)
+  /**
+   * Helper to shuffle options dynamically so the correct answer is randomly
+   * positioned across A, B, C, or D each time a challenge is presented.
+   * Keeps Arabic and English synchronized.
+   */
+  function createShuffledOptions(optionsObj, correctIdx = 0) {
+    if (!optionsObj) return [];
+    const arList = optionsObj.ar || [];
+    const enList = optionsObj.en || [];
+    const count = Math.max(arList.length, enList.length);
+    const targetIdx = (typeof correctIdx === 'number') ? correctIdx : 0;
+
+    const items = [];
+    for (let i = 0; i < count; i++) {
+      items.push({
+        originalIndex: i,
+        ar: arList[i] || '',
+        en: enList[i] || (arList[i] || ''),
+        isCorrect: (i === targetIdx)
+      });
+    }
+
+    // Fisher-Yates shuffle
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+
+    return items;
+  }
+
+  // 1. Quick Quiz (Multiple Choice with -15 deduction and randomized option positions)
   function renderQuickQuizModal(item, segment) {
     const lang = currentLang;
     const qText = item.question[lang] || item.question.en;
-    const options = item.options[lang] || item.options.en;
     const activeTeam = window.gameStateManager.getActiveTeam();
+    const shuffledOptions = createShuffledOptions(item.options, item.correctIndex);
 
     const timerDuration = 20;
     let secondsLeft = timerDuration;
@@ -849,11 +884,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const optionsGrid = document.getElementById('quizOptionsGrid');
     const letters = ['A', 'B', 'C', 'D'];
 
-    options.forEach((optText, optIdx) => {
+    shuffledOptions.forEach((optObj, optIdx) => {
       const btn = document.createElement('button');
       btn.className = 'quiz-option-btn';
+      btn.dataset.correct = optObj.isCorrect ? 'true' : 'false';
+      const optText = optObj[lang] || optObj.ar || optObj.en;
+
       btn.innerHTML = `
-        <span class="quiz-option-letter">${letters[optIdx]}</span>
+        <span class="quiz-option-letter">${letters[optIdx] || (optIdx + 1)}</span>
         <span>${optText}</span>
       `;
 
@@ -869,14 +907,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const expCard = document.getElementById('quizExplanationCard');
         const expText = item.explanation ? (item.explanation[lang] || item.explanation.en) : '';
 
-        if (optIdx === item.correctIndex) {
+        if (optObj.isCorrect) {
           btn.classList.add('correct');
           soundController.playSuccess();
           window.gameStateManager.awardActiveTeam(30, myPlayerName);
           expCard.innerHTML = `<strong>🎉 ${lang === 'ar' ? 'إجابة صحيحة! (+30 نقطة)' : 'Correct! (+30 Points)'}</strong><br>${expText}`;
         } else {
           btn.classList.add('wrong');
-          allBtns[item.correctIndex].classList.add('correct');
+          // Highlight the actual correct option button wherever it ended up!
+          allBtns.forEach(b => {
+            if (b.dataset.correct === 'true') b.classList.add('correct');
+          });
           soundController.playBuzzer();
           window.gameStateManager.penalizeActiveTeam(15, myPlayerName);
           expCard.innerHTML = `<strong>❌ ${lang === 'ar' ? 'إجابة خاطئة! (خصم -15 نقطة)' : 'Wrong Answer! (-15 Points)'}</strong><br>${expText}`;
@@ -903,8 +944,10 @@ document.addEventListener('DOMContentLoaded', () => {
         clearInterval(currentTimerInterval);
         soundController.playBuzzer();
         const allBtns = optionsGrid.querySelectorAll('.quiz-option-btn');
-        allBtns.forEach(b => b.disabled = true);
-        allBtns[item.correctIndex].classList.add('correct');
+        allBtns.forEach(b => {
+          b.disabled = true;
+          if (b.dataset.correct === 'true') b.classList.add('correct');
+        });
         window.gameStateManager.penalizeActiveTeam(15);
         const expCard = document.getElementById('quizExplanationCard');
         expCard.innerHTML = `<strong>⏰ ${lang === 'ar' ? 'انتهى الوقت! (خصم -15 نقطة)' : 'Time up! (-15 points)'}</strong>`;
@@ -973,15 +1016,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Options for Mystery
+    // Options for Mystery (Randomized positions)
     const optionsGrid = document.getElementById('mysteryOptionsGrid');
     const letters = ['A', 'B', 'C', 'D'];
+    const shuffledOptions = createShuffledOptions(item.options, item.correctIndex || 0);
 
-    options.forEach((optText, optIdx) => {
+    shuffledOptions.forEach((optObj, optIdx) => {
       const btn = document.createElement('button');
       btn.className = 'quiz-option-btn';
+      btn.dataset.correct = optObj.isCorrect ? 'true' : 'false';
+      const optText = optObj[lang] || optObj.ar || optObj.en;
+
       btn.innerHTML = `
-        <span class="quiz-option-letter">${letters[optIdx]}</span>
+        <span class="quiz-option-letter">${letters[optIdx] || (optIdx + 1)}</span>
         <span>${optText}</span>
       `;
 
@@ -994,14 +1041,17 @@ document.addEventListener('DOMContentLoaded', () => {
         allBtns.forEach(b => b.disabled = true);
         const ansCard = document.getElementById('mysteryAnswerCard');
 
-        if (optIdx === (item.correctIndex || 0)) {
+        if (optObj.isCorrect) {
           btn.classList.add('correct');
           soundController.playSuccess();
           window.gameStateManager.awardActiveTeam(30, myPlayerName);
           ansCard.innerHTML = `<strong>🎉 ${lang === 'ar' ? 'تخمين عبقري صحيح! (+30 نقطة)' : 'Brilliant Guess! (+30 Points)'}</strong><br>الحل: ${answer}<br>${funFact}`;
         } else {
           btn.classList.add('wrong');
-          allBtns[item.correctIndex || 0].classList.add('correct');
+          // Highlight the actual correct option button wherever it ended up!
+          allBtns.forEach(b => {
+            if (b.dataset.correct === 'true') b.classList.add('correct');
+          });
           soundController.playBuzzer();
           window.gameStateManager.penalizeActiveTeam(15, myPlayerName);
           ansCard.innerHTML = `<strong>❌ ${lang === 'ar' ? 'تخمين غير صحيح! (خصم -15 نقطة)' : 'Wrong Guess! (-15 Points)'}</strong><br>الحل الصحيح هو: ${answer}<br>${funFact}`;
@@ -1013,11 +1063,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 3. Fix the Mistake (Multiple Choice Options with -15 deduction)
+  // 3. Fix the Mistake (Multiple Choice Options with -15 deduction and randomized positions)
   function renderFixMistakeModal(item, segment) {
     const lang = currentLang;
     const sentence = item.sentence[lang] || item.sentence.en;
-    const options = item.options ? (item.options[lang] || item.options.en) : [];
     const explanation = item.explanation ? (item.explanation[lang] || item.explanation.en) : '';
 
     modalBodyContent.innerHTML = `
@@ -1036,12 +1085,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const optionsGrid = document.getElementById('fixOptionsGrid');
     const letters = ['A', 'B', 'C', 'D'];
+    const shuffledOptions = createShuffledOptions(item.options, item.correctIndex || 0);
 
-    options.forEach((optText, optIdx) => {
+    shuffledOptions.forEach((optObj, optIdx) => {
       const btn = document.createElement('button');
       btn.className = 'quiz-option-btn';
+      btn.dataset.correct = optObj.isCorrect ? 'true' : 'false';
+      const optText = optObj[lang] || optObj.ar || optObj.en;
+
       btn.innerHTML = `
-        <span class="quiz-option-letter">${letters[optIdx]}</span>
+        <span class="quiz-option-letter">${letters[optIdx] || (optIdx + 1)}</span>
         <span>${optText}</span>
       `;
 
@@ -1054,14 +1107,17 @@ document.addEventListener('DOMContentLoaded', () => {
         allBtns.forEach(b => b.disabled = true);
         const expCard = document.getElementById('fixExplanationCard');
 
-        if (optIdx === (item.correctIndex || 0)) {
+        if (optObj.isCorrect) {
           btn.classList.add('correct');
           soundController.playSuccess();
           window.gameStateManager.awardActiveTeam(30, myPlayerName);
           expCard.innerHTML = `<strong>✅ ${lang === 'ar' ? 'تصحيح ممتاز! (+30 نقطة)' : 'Correct Fix! (+30 Points)'}</strong><br>${explanation}`;
         } else {
           btn.classList.add('wrong');
-          allBtns[item.correctIndex || 0].classList.add('correct');
+          // Highlight the actual correct option button wherever it ended up!
+          allBtns.forEach(b => {
+            if (b.dataset.correct === 'true') b.classList.add('correct');
+          });
           soundController.playBuzzer();
           window.gameStateManager.penalizeActiveTeam(15, myPlayerName);
           expCard.innerHTML = `<strong>❌ ${lang === 'ar' ? 'اختيار خاطئ! (خصم -15 نقطة)' : 'Incorrect! (-15 Points)'}</strong><br>${explanation}`;
