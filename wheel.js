@@ -150,6 +150,13 @@ class SpinnerWheel {
   spin(forceMultiplier = 1) {
     if (this.isSpinning) return false;
 
+    // Check if external conditions allow spinning (e.g., player joined, not blocked, not frozen)
+    if (this.options.beforeSpin && typeof this.options.beforeSpin === 'function') {
+      if (!this.options.beforeSpin()) {
+        return false;
+      }
+    }
+
     this.isSpinning = true;
     if (this.onSpinStart) this.onSpinStart();
 
@@ -186,6 +193,11 @@ class SpinnerWheel {
 
     const onStart = (e) => {
       if (this.isSpinning) return;
+      if (this.options.beforeSpin && typeof this.options.beforeSpin === 'function') {
+        if (!this.options.beforeSpin()) {
+          return;
+        }
+      }
       isDragging = true;
       lastAngle = getAngle(e);
       lastTime = performance.now();
@@ -218,6 +230,11 @@ class SpinnerWheel {
 
       // If flicked with sufficient speed, trigger spin!
       if (Math.abs(dragVelocity) > 6) {
+        if (this.options.beforeSpin && typeof this.options.beforeSpin === 'function') {
+          if (!this.options.beforeSpin()) {
+            return;
+          }
+        }
         this.angularVelocity = Math.min(Math.max(dragVelocity, -35), 35);
         this.friction = 0.986;
         this.isSpinning = true;

@@ -197,6 +197,11 @@
             <span id="freezeBtnIcon">❄️</span> <span id="freezeBtnText">تجميد اللعبة (Freeze)</span>
           </button>
 
+          <!-- Certificate Generator Hub Button -->
+          <button class="ctrl-btn" id="btnAdminOpenCert" style="background: linear-gradient(135deg, #FFF9DB, #FFE899); color: #7B4700; border: 1.5px solid #E5A93C; font-weight: 800;">
+            <span>🎓</span> <span>مولد وتوثيق الشهادات</span>
+          </button>
+
           <!-- Cloud Live Sync Status Badge -->
           <div id="cloudSyncStatusBadge" style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:800; padding:6px 14px; border-radius:999px; border:1px solid rgba(255,255,255,0.4); background:rgba(255,255,255,0.15); color:#FFFFFF;">
             ○ مزامنة أونلاين عبر الإنترنت
@@ -427,11 +432,72 @@
     </div>
   </div>
 
+  <!-- Certificate Modal Backdrop for Admin -->
+  <div id="adminCertModalBackdrop" class="activity-modal-backdrop" role="dialog" aria-modal="true" style="display: none;">
+    <div class="modal-card" style="max-width: 900px; width: 95%; max-height: 94vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+      
+      <!-- Modal Header -->
+      <div class="modal-header" style="background: linear-gradient(135deg, #1C3144, #0F1B29); color: #FFF; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 28px;">🎓</span>
+          <div>
+            <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #FFD152;">منظومة توثيق الشهادات الأكاديمية (Admin Certificate Hub)</h3>
+            <p style="margin: 0; font-size: 12px; color: #CFD8DC;">إصدار وتوثيق شهادات التفوق والترتيب لكافة الطلاب والفرق رسمياً</p>
+          </div>
+        </div>
+        <button class="modal-close" id="adminCertCloseBtn" style="color: #FFF; background: rgba(255,255,255,0.15); border: none; font-size: 20px; border-radius: 50%; width: 36px; height: 36px; cursor: pointer;">✕</button>
+      </div>
+
+      <!-- Controls row -->
+      <div style="background: #F8F9FA; padding: 14px 20px; border-bottom: 1px solid #ECEFF1; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: 1;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; font-weight: 800; color: #546E7A;">الفريق:</label>
+            <select id="adminCertTeamSelect" style="padding: 6px 12px; border-radius: 8px; border: 1.5px solid #CFD8DC; font-size: 12.5px; font-weight: 700; background: #FFF;"></select>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; font-weight: 800; color: #546E7A;">العضو المسجل:</label>
+            <select id="adminCertMemberSelect" style="padding: 6px 12px; border-radius: 8px; border: 1.5px solid #CFD8DC; font-size: 12.5px; font-weight: 700; background: #FFF;"></select>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px;">
+            <label style="font-size: 11px; font-weight: 800; color: #546E7A;">الاسم على الشهادة:</label>
+            <input type="text" id="adminCertCustomNameInput" placeholder="اكتب اسم الطالب / الباحث" style="padding: 6px 12px; border-radius: 8px; border: 1.5px solid #CFD8DC; font-size: 12.5px; font-weight: 700; background: #FFF;">
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; font-weight: 800; color: #546E7A;">لغة الشهادة (Language):</label>
+            <select id="adminCertLangSelect" style="padding: 6px 12px; border-radius: 8px; border: 1.5px solid #CFD8DC; font-size: 12.5px; font-weight: 700; background: #FFF;">
+              <option value="ar">العربية (Arabic)</option>
+              <option value="en">English (الإنجليزية)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="btnAdminDownloadCertPng" class="ctrl-btn" style="background: linear-gradient(135deg, #10B981, #059669); color: #FFF; border: none; font-weight: 800; padding: 8px 16px; border-radius: 10px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); cursor: pointer;">
+            <span>💾</span> <span>تحميل (PNG HD)</span>
+          </button>
+          <button id="btnAdminPrintCertPdf" class="ctrl-btn" style="background: linear-gradient(135deg, #3B82F6, #2563EB); color: #FFF; border: none; font-weight: 800; padding: 8px 16px; border-radius: 10px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); cursor: pointer;">
+            <span>🖨️</span> <span>طباعة / حفظ PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Preview Canvas -->
+      <div style="padding: 16px; overflow-y: auto; display: flex; justify-content: center; align-items: center; background: #263238;">
+        <canvas id="adminCertCanvas" width="1200" height="850" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.5);"></canvas>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts (With Real-Time Global Internet WebSockets) -->
   <script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script>
   <script src="state.js"></script>
   <script src="questions.js"></script>
   <script src="audio.js"></script>
+  <script src="cert.js"></script>
   <script>
     // Admin Page Controller
     document.addEventListener('DOMContentLoaded', () => {
@@ -700,11 +766,14 @@
           const isFull = memCount >= (team.maxMembers || 5);
 
           card.innerHTML = `
-            <div class="admin-team-top">
+            <div class="admin-team-top" style="${team.isBlocked ? 'border: 2px solid #FFA4A4; background: #FFF5F5; border-radius: 12px; padding: 10px;' : ''}">
               <div class="admin-team-title-wrap">
                 <span style="font-size: 32px;">${team.avatar}</span>
                 <div>
-                  <div style="font-size: 18px; font-weight: 900; color: #38242A;">${team.name}</div>
+                  <div style="font-size: 18px; font-weight: 900; color: #38242A; display: flex; align-items: center; gap: 8px;">
+                    <span>${team.name}</span>
+                    ${team.isBlocked ? '<span style="background:#FFCDD2; color:#B71C1C; font-size:11.5px; font-weight:800; padding:2px 8px; border-radius:999px;">🚫 الفريق محظور من اللعب</span>' : ''}
+                  </div>
                   <div style="font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
                     <span>كود الدعوة:</span>
                     <strong style="color:var(--primary-pink); font-family: monospace; font-size: 15px;">${team.code}</strong>
@@ -724,6 +793,10 @@
                 <button class="score-action-btn score-btn-add" data-action="score" data-tid="${team.id}" data-val="50">+50</button>
                 <button class="score-action-btn score-btn-sub" data-action="score" data-tid="${team.id}" data-val="-10">-10</button>
                 <button class="score-action-btn score-btn-bonus" data-action="bonus" data-tid="${team.id}" data-val="100">🎁 +100 بونص</button>
+                <button class="score-action-btn" data-action="teamCert" data-tid="${team.id}" style="background: linear-gradient(135deg, #FFF9DB, #FFE899); color: #7B4700; border: 1.5px solid #E5A93C; font-weight: 800;" title="استخراج وتوثيق شهادات هذا الفريق">🎓 شهادات الفريق</button>
+                <button class="score-action-btn" data-action="toggleTeamBlock" data-tid="${team.id}" style="${team.isBlocked ? 'background:#E8F5E9; color:#2E7D32; font-weight:800;' : 'background:#FFEBEE; color:#C62828; font-weight:800;'}" title="حظر أو فك حظر الفريق">
+                  ${team.isBlocked ? '✅ فك حظر الفريق' : '🚫 حظر الفريق'}
+                </button>
                 <button class="score-action-btn" data-action="resetTeam" data-tid="${team.id}" style="background: #FFF3E0; color: #E65100; border: 1.5px solid #FFCC80; font-weight: 800;" title="تصفير نقاط هذا الفريق وإحصائيات أعضائه">🔄 تصفير الفريق</button>
                 <button class="score-action-btn score-btn-sub" data-action="delete" data-tid="${team.id}">حذف ✕</button>
               </div>
@@ -746,13 +819,19 @@
                 </thead>
                 <tbody>
                   ${team.members && team.members.length > 0 ? team.members.map(m => `
-                    <tr>
-                      <td style="font-weight: 800; color: #2C2623;">👤 ${m.name}</td>
+                    <tr style="${m.isBlocked ? 'background:#FFF5F5;' : ''}">
+                      <td style="font-weight: 800; color: #2C2623;">
+                        👤 ${m.name}
+                        ${m.isBlocked ? '<span style="background:#FFCDD2; color:#B71C1C; font-size:11px; padding:2px 6px; border-radius:4px; font-weight:800; margin-right:4px;">🚫 محظور</span>' : ''}
+                      </td>
                       <td><span style="background:#EBF8FF; color:#2B6CB0; padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:700;">${m.role || 'عضو'}</span></td>
                       <td style="font-weight: 900; color: ${(m.points || 0) < 0 ? '#D32F2F' : '#D82655'};">⭐ ${m.points || 0} نقطة ${(m.points || 0) < 0 ? '⚠️' : ''}</td>
                       <td style="font-weight: 800; color: #2E7D32;">🎯 ${m.questionsSolved || 0} سؤال محلول</td>
-                      <td>
+                        <button class="score-action-btn" data-action="memCert" data-tid="${team.id}" data-mname="${m.name}" style="background: #FFF9DB; color: #7B4700; border: 1px solid #E5A93C; font-weight: 800;" title="استخراج وتوثيق شهادة الطالب">🎓 شهادة</button>
                         <button class="score-action-btn score-btn-add" data-action="memScore" data-tid="${team.id}" data-mname="${m.name}" data-val="10">+10 نقاط</button>
+                        <button class="score-action-btn" data-action="toggleMemBlock" data-tid="${team.id}" data-mname="${m.name}" style="${m.isBlocked ? 'background:#E8F5E9; color:#2E7D32;' : 'background:#FFF3E0; color:#E65100;'}">
+                          ${m.isBlocked ? '✅ فك الحظر' : '🚫 حظر العضو'}
+                        </button>
                         <button class="score-action-btn score-btn-sub" data-action="memRemove" data-tid="${team.id}" data-mname="${m.name}">إزالة ✕</button>
                       </td>
                     </tr>
@@ -813,10 +892,22 @@
                 soundController.playClick();
                 renderAdminTeams();
               }
+            } else if (act === 'toggleTeamBlock') {
+              const isNowBlocked = window.gameStateManager.toggleTeamBlock(tid);
+              soundController.playClick();
+              renderAdminTeams();
+            } else if (act === 'toggleMemBlock') {
+              const isNowBlocked = window.gameStateManager.toggleMemberBlock(tid, mname);
+              soundController.playClick();
+              renderAdminTeams();
             } else if (act === 'memScore') {
               window.gameStateManager.updateMemberPoints(tid, mname, val, 1);
               soundController.playSuccess();
               renderAdminTeams();
+            } else if (act === 'teamCert') {
+              openAdminCertModal(tid, null);
+            } else if (act === 'memCert') {
+              openAdminCertModal(tid, mname);
             } else if (act === 'memRemove') {
               if (confirm(`إزالة العضو ${mname} من الفريق؟`)) {
                 window.gameStateManager.removeMember(tid, mname);
@@ -1093,6 +1184,194 @@
         updateLiveEvalWidget(state);
         updateAdminFreezeUI(state.isFrozen);
       });
+
+      // =====================================================================
+      // Admin Certificate Hub Controller
+      // =====================================================================
+      const btnAdminOpenCert = document.getElementById('btnAdminOpenCert');
+      const adminCertModalBackdrop = document.getElementById('adminCertModalBackdrop');
+      const adminCertCloseBtn = document.getElementById('adminCertCloseBtn');
+      const adminCertTeamSelect = document.getElementById('adminCertTeamSelect');
+      const adminCertMemberSelect = document.getElementById('adminCertMemberSelect');
+      const adminCertCustomNameInput = document.getElementById('adminCertCustomNameInput');
+      const adminCertLangSelect = document.getElementById('adminCertLangSelect');
+      const btnAdminDownloadCertPng = document.getElementById('btnAdminDownloadCertPng');
+      const btnAdminPrintCertPdf = document.getElementById('btnAdminPrintCertPdf');
+      const adminCertCanvas = document.getElementById('adminCertCanvas');
+
+      function openAdminCertModal(presetTeamId = null, presetMemberName = null) {
+        if (!adminCertModalBackdrop) return;
+        populateAdminCertSelectors(presetTeamId, presetMemberName);
+        adminCertModalBackdrop.style.display = 'flex';
+        requestAnimationFrame(() => adminCertModalBackdrop.classList.add('active'));
+        refreshAdminCertificateView();
+      }
+
+      function closeAdminCertModal() {
+        if (!adminCertModalBackdrop) return;
+        adminCertModalBackdrop.classList.remove('active');
+        setTimeout(() => {
+          adminCertModalBackdrop.style.display = 'none';
+        }, 250);
+      }
+
+      function populateAdminCertSelectors(selectedTeamId = null, selectedMemberName = null) {
+        if (!adminCertTeamSelect) return;
+        adminCertTeamSelect.innerHTML = '';
+        const teams = window.gameStateManager.getTeams();
+        teams.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = `${t.avatar} ${t.name}`;
+          adminCertTeamSelect.appendChild(opt);
+        });
+
+        if (selectedTeamId && teams.some(t => t.id === selectedTeamId)) {
+          adminCertTeamSelect.value = selectedTeamId;
+        } else if (teams.length > 0) {
+          adminCertTeamSelect.value = teams[0].id;
+        }
+
+        populateAdminMembersForTeam(adminCertTeamSelect.value, selectedMemberName);
+      }
+
+      function populateAdminMembersForTeam(teamId, selectedMemberName = null) {
+        if (!adminCertMemberSelect) return;
+        adminCertMemberSelect.innerHTML = '';
+        const teams = window.gameStateManager.getTeams();
+        const team = teams.find(t => t.id === teamId);
+
+        if (team && team.members && team.members.length > 0) {
+          team.members.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = `👤 ${m.name} (${m.points || 0} نقطة)`;
+            adminCertMemberSelect.appendChild(opt);
+          });
+
+          if (selectedMemberName && team.members.some(m => m.name === selectedMemberName)) {
+            adminCertMemberSelect.value = selectedMemberName;
+          } else {
+            adminCertMemberSelect.value = team.members[0].name;
+          }
+
+          if (adminCertCustomNameInput) {
+            adminCertCustomNameInput.value = adminCertMemberSelect.value;
+          }
+        } else {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = '(لا يوجد أعضاء مسجلين بهذا الفريق بعد)';
+          adminCertMemberSelect.appendChild(opt);
+          if (adminCertCustomNameInput) {
+            adminCertCustomNameInput.value = 'المتسابق المتميز';
+          }
+        }
+      }
+
+      function refreshAdminCertificateView() {
+        if (!adminCertCanvas || !window.CertificateRenderer) return;
+        const teams = window.gameStateManager.getTeams();
+        const selectedTeamId = adminCertTeamSelect ? adminCertTeamSelect.value : (teams[0] ? teams[0].id : null);
+        const team = teams.find(t => t.id === selectedTeamId) || teams[0];
+
+        const certLang = adminCertLangSelect ? adminCertLangSelect.value : 'ar';
+        const isEn = (certLang === 'en');
+
+        const sortedTeams = [...teams].sort((a, b) => (b.score || 0) - (a.score || 0));
+        const rankIdx = sortedTeams.findIndex(t => t.id === (team ? team.id : ''));
+        const rankNamesAr = ['المركز الأول 🥇', 'المركز الثاني 🥈', 'المركز الثالث 🥉', 'المركز الرابع', 'المركز الخامس', 'المركز السادس', 'المركز السابع', 'المركز الثامن', 'المركز التاسع', 'المركز العاشر'];
+        const rankNamesEn = ['1st Place 🥇', '2nd Place 🥈', '3rd Place 🥉', '4th Place', '5th Place', '6th Place', '7th Place', '8th Place', '9th Place', '10th Place'];
+        const rankName = isEn
+          ? (rankIdx >= 0 ? rankNamesEn[rankIdx] : '1st Place 🥇')
+          : (rankIdx >= 0 ? rankNamesAr[rankIdx] : 'المركز الأول 🥇');
+
+        let studentName = (adminCertCustomNameInput && adminCertCustomNameInput.value.trim()) || '';
+        if (!studentName && adminCertMemberSelect && adminCertMemberSelect.value) {
+          studentName = adminCertMemberSelect.value;
+        }
+        if (!studentName) studentName = isEn ? 'Distinguished Participant' : 'المتسابق المتميز';
+
+        let memberScore = 0;
+        let questionsSolved = 0;
+        if (team && team.members) {
+          const mem = team.members.find(m => m.name === studentName) || team.members.find(m => m.name === (adminCertMemberSelect ? adminCertMemberSelect.value : ''));
+          if (mem) {
+            memberScore = mem.points || 0;
+            questionsSolved = mem.questionsSolved || 0;
+          }
+        }
+
+        window.CertificateRenderer.draw(adminCertCanvas, {
+          studentName,
+          teamName: team ? team.name : (isEn ? 'Contest Team' : 'فريق المسابقة'),
+          teamAvatar: team ? team.avatar : '🐞',
+          teamScore: team ? team.score : 0,
+          memberScore,
+          questionsSolved,
+          rankName,
+          lang: certLang,
+          witnessTitle: isEn ? 'Central Admin Control Panel' : 'لوحة تحكم المشرف المركزية'
+        });
+      }
+
+      if (btnAdminOpenCert) {
+        btnAdminOpenCert.addEventListener('click', () => {
+          soundController.playClick();
+          openAdminCertModal();
+        });
+      }
+
+      if (adminCertCloseBtn) {
+        adminCertCloseBtn.addEventListener('click', closeAdminCertModal);
+      }
+
+      if (adminCertModalBackdrop) {
+        adminCertModalBackdrop.addEventListener('click', (e) => {
+          if (e.target === adminCertModalBackdrop) closeAdminCertModal();
+        });
+      }
+
+      if (adminCertTeamSelect) {
+        adminCertTeamSelect.addEventListener('change', () => {
+          populateAdminMembersForTeam(adminCertTeamSelect.value);
+          refreshAdminCertificateView();
+        });
+      }
+
+      if (adminCertMemberSelect) {
+        adminCertMemberSelect.addEventListener('change', () => {
+          if (adminCertCustomNameInput && adminCertMemberSelect.value) {
+            adminCertCustomNameInput.value = adminCertMemberSelect.value;
+          }
+          refreshAdminCertificateView();
+        });
+      }
+
+      if (adminCertCustomNameInput) {
+        adminCertCustomNameInput.addEventListener('input', refreshAdminCertificateView);
+      }
+
+      if (adminCertLangSelect) {
+        adminCertLangSelect.addEventListener('change', refreshAdminCertificateView);
+      }
+
+      if (btnAdminDownloadCertPng) {
+        btnAdminDownloadCertPng.addEventListener('click', () => {
+          if (!adminCertCanvas || !window.CertificateRenderer) return;
+          const sName = (adminCertCustomNameInput && adminCertCustomNameInput.value.trim()) || 'المتسابق';
+          window.CertificateRenderer.downloadPng(adminCertCanvas, `شهادة_معتمدة_${sName.replace(/\s+/g, '_')}.png`);
+          soundController.playSuccess();
+        });
+      }
+
+      if (btnAdminPrintCertPdf) {
+        btnAdminPrintCertPdf.addEventListener('click', () => {
+          if (!adminCertCanvas || !window.CertificateRenderer) return;
+          const sName = (adminCertCustomNameInput && adminCertCustomNameInput.value.trim()) || 'المتسابق';
+          window.CertificateRenderer.printPdf(adminCertCanvas, `شهادة معتمدة - ${sName}`);
+        });
+      }
 
       // Initial check
       updateLiveEvalWidget(window.gameStateManager.getState());

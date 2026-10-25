@@ -46,16 +46,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const shareUrlInput = document.getElementById('shareUrlInput');
   const btnCopyShareUrl = document.getElementById('btnCopyShareUrl');
 
+  // Certificate Modal Elements
+  const openCertBtn = document.getElementById('openCertBtn');
+  const certModalBackdrop = document.getElementById('certModalBackdrop');
+  const certCloseBtn = document.getElementById('certCloseBtn');
+  const certTeamSelect = document.getElementById('certTeamSelect');
+  const certMemberSelect = document.getElementById('certMemberSelect');
+  const certCustomNameInput = document.getElementById('certCustomNameInput');
+  const certLangSelect = document.getElementById('certLangSelect');
+  const btnDownloadCertPng = document.getElementById('btnDownloadCertPng');
+  const btnPrintCertPdf = document.getElementById('btnPrintCertPdf');
+  const certCanvas = document.getElementById('certCanvas');
+
   // State
   let currentLang = window.activityManager.getLanguage() || 'ar';
   let recentSpins = [];
   let currentTimerInterval = null;
   let lastProcessedTrigger = 0;
   let lastProcessedEvalTimestamp = 0;
+  let isSubmittingAnswer = false; // Debounce guard against rapid double-clicks
 
-  // Registered Student in this browser
-  let myTeamId = localStorage.getItem('my_registered_team_id');
-  let myPlayerName = localStorage.getItem('my_registered_player_name');
+  // Registered Student isolated per browser tab session
+  let myTeamId = sessionStorage.getItem('my_registered_team_id');
+  let myPlayerName = sessionStorage.getItem('my_registered_player_name');
+  const leaveTeamBtn = document.getElementById('leaveTeamBtn');
 
   // Translations
   const UI_TRANSLATIONS = {
@@ -68,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
       rosterTitle: 'أقسام وتحديات العجلة الـ 6',
       recentSpins: 'آخر الأنشطة:',
       joinTeamBtn: 'انضم لفريقك',
+      leaveTeamBtn: 'مغادرة الفريق',
       turnBadge: 'دوره الآن',
       timeRemaining: 'الوقت المتبقي:',
       seconds: 'ثانية',
@@ -87,7 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
       copyLinkBtn: 'نسخ الرابط 📋',
       gameFrozenTitle: 'المسابقة متوقفة مؤقتاً بأمر المشرف',
       gameFrozenSub: 'قام الأستاذ المشرف بإيقاف وتجميد اللعبة مؤقتاً لمراجعة النقاط أو تقديم شرح تعليمي. يرجى الانتباه لشاشة العرض، وسيتم استئناف التحدي فوراً.',
-      waitingAdminResume: 'في انتظار إشارة الاستئناف من المشرف...'
+      waitingAdminResume: 'في انتظار إشارة الاستئناف من المشرف...',
+      certificateBtn: 'شهادة الإنجاز',
+      certModalTitle: 'شهادة الإنجاز والتفوّق العلمي',
+      certModalSub: 'وثيقة تكريم رسمية بالنقاط والترتيب لمسابقة الجهاز الدوري',
+      certTeamLabel: 'الفريق:',
+      certMemberLabel: 'العضو المسجل:',
+      certNameLabel: 'الاسم على الشهادة:',
+      downloadCertPng: 'تحميل كصورة (PNG HD)',
+      printCertPdf: 'طباعة / حفظ PDF'
     },
     en: {
       appTitle: 'Circulatory Systems in Animals & Insects',
@@ -98,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
       rosterTitle: '6 Presentation Wheel Activities',
       recentSpins: 'Recent Activities:',
       joinTeamBtn: 'Join a Team',
+      leaveTeamBtn: 'Leave Team',
       turnBadge: 'Active Turn',
       timeRemaining: 'Time Left:',
       seconds: 'sec',
@@ -117,7 +141,15 @@ document.addEventListener('DOMContentLoaded', () => {
       copyLinkBtn: 'Copy Link 📋',
       gameFrozenTitle: 'Game Paused by Admin',
       gameFrozenSub: 'The teacher/admin has temporarily paused the competition. Please look at the presenter screen, challenge will resume shortly.',
-      waitingAdminResume: 'Waiting for admin to resume...'
+      waitingAdminResume: 'Waiting for admin to resume...',
+      certificateBtn: 'Certificate',
+      certModalTitle: 'Certificate of Academic Excellence',
+      certModalSub: 'Official Honor Document with Scores and Rank',
+      certTeamLabel: 'Team:',
+      certMemberLabel: 'Registered Member:',
+      certNameLabel: 'Name on Certificate:',
+      downloadCertPng: 'Download Image (PNG HD)',
+      printCertPdf: 'Print / Save PDF'
     }
   };
 
@@ -139,21 +171,48 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRosterList();
     renderScoreboard();
     updatePlayerBadge();
+    if (certLangSelect) certLangSelect.value = lang;
   }
 
   function updatePlayerBadge() {
     if (myTeamId && myPlayerName) {
       const teams = window.gameStateManager.getTeams();
       const t = teams.find(team => team.id === myTeamId);
-      if (t) {
+      const memExists = t && t.members && t.members.some(m => m.name === myPlayerName);
+
+      if (t && memExists) {
         playerTeamBadge.style.display = 'inline-flex';
-        playerTeamBadgeText.textContent = `${currentLang === 'ar' ? 'فريقك المثبت:' : 'Your Team:'} ${t.name} (👤 ${myPlayerName})`;
         joinTeamBtn.style.display = 'none'; // Lock from joining another team
+        
+        const isTeamBlk = window.gameStateManager.isTeamBlocked(myTeamId);
+        const isMemBlk = window.gameStateManager.isMemberBlocked(myTeamId, myPlayerName);
+        
+        if (isTeamBlk || isMemBlk) {
+          playerTeamBadge.style.background = '#FFEBEE';
+          playerTeamBadge.style.borderColor = '#EF5350';
+          playerTeamBadge.style.color = '#C62828';
+          if (isTeamBlk) {
+            playerTeamBadgeText.innerHTML = (currentLang === 'ar')
+              ? `<span>🚫 فريقك (${t.name}) محظور من المشرف!</span>`
+              : `<span>🚫 Your team (${t.name}) is blocked!</span>`;
+          } else {
+            playerTeamBadgeText.innerHTML = (currentLang === 'ar')
+              ? `<span>🚫 حسابك (<strong>${myPlayerName}</strong>) محظور من المشرف!</span>`
+              : `<span>🚫 Account (<strong>${myPlayerName}</strong>) is blocked!</span>`;
+          }
+        } else {
+          playerTeamBadge.style.background = '#FFF0F4';
+          playerTeamBadge.style.borderColor = '#FF8DAA';
+          playerTeamBadge.style.color = 'var(--primary-pink-dark)';
+          playerTeamBadgeText.innerHTML = (currentLang === 'ar')
+            ? `<span>👋 مرحباً، <strong>${myPlayerName}</strong> | فريق: ${t.avatar} <strong>${t.name}</strong></span>`
+            : `<span>👋 Welcome, <strong>${myPlayerName}</strong> | Team: ${t.avatar} <strong>${t.name}</strong></span>`;
+        }
       } else {
         myTeamId = null;
         myPlayerName = null;
-        localStorage.removeItem('my_registered_team_id');
-        localStorage.removeItem('my_registered_player_name');
+        sessionStorage.removeItem('my_registered_team_id');
+        sessionStorage.removeItem('my_registered_player_name');
         playerTeamBadge.style.display = 'none';
         joinTeamBtn.style.display = 'inline-flex';
       }
@@ -163,9 +222,86 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Wire Leave Team button
+  if (leaveTeamBtn) {
+    leaveTeamBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!myTeamId || !myPlayerName) return;
+      const t = window.gameStateManager.getTeam(myTeamId);
+      const teamName = t ? t.name : '';
+      const confirmLeave = confirm(currentLang === 'ar'
+        ? `هل أنت متأكد من مغادرة فريقك (${teamName})؟ سيتم إخلاء مقعدك لتتمكن من الانضمام إلى فريق آخر.`
+        : `Are you sure you want to leave your team (${teamName})? You will be able to join another team.`);
+      if (confirmLeave) {
+        window.gameStateManager.leaveTeam(myTeamId, myPlayerName);
+        sessionStorage.removeItem('my_registered_team_id');
+        sessionStorage.removeItem('my_registered_player_name');
+        localStorage.removeItem('my_registered_team_id');
+        localStorage.removeItem('my_registered_player_name');
+        myTeamId = null;
+        myPlayerName = null;
+        updatePlayerBadge();
+        renderScoreboard();
+        alert(currentLang === 'ar' ? 'تمت مغادرة الفريق بنجاح. يمكنك الآن الانضمام لفريق جديد.' : 'You have left the team successfully.');
+      }
+    });
+  }
+
+  // Check if player has permission to spin or play
+  function canCurrentPlayerSpin() {
+    // 1. Is game frozen?
+    if (window.gameStateManager.isGameFrozen()) {
+      alert(currentLang === 'ar' 
+        ? '❄️ المسابقة متوقفة ومجمدة مؤقتاً بأمر المشرف.' 
+        : '❄️ The game is temporarily paused by the admin.');
+      return false;
+    }
+
+    // 2. Must be joined to a team
+    if (!myTeamId || !myPlayerName) {
+      alert(currentLang === 'ar'
+        ? '⚠️ يجب عليك الانضمام إلى فريق أولاً لتتمكن من تدوير العجلة والمنافسة في التحديات!'
+        : '⚠️ You must join a team first before spinning the wheel!');
+      openJoinModal();
+      return false;
+    }
+
+    // 3. Is team blocked?
+    if (window.gameStateManager.isTeamBlocked(myTeamId)) {
+      const teams = window.gameStateManager.getTeams();
+      const t = teams.find(team => team.id === myTeamId);
+      const teamName = t ? t.name : myTeamId;
+      alert(currentLang === 'ar'
+        ? `🚫 تم حظر فريقك (${teamName}) من المشاركة في المسابقة بقرار من المشرف! تواصل مع المشرف لفك الحظر.`
+        : `🚫 Your team (${teamName}) has been blocked by the admin!`);
+      return false;
+    }
+
+    // 4. Is member individually blocked?
+    if (window.gameStateManager.isMemberBlocked(myTeamId, myPlayerName)) {
+      alert(currentLang === 'ar'
+        ? `🚫 تم حظرك كلاعب (${myPlayerName}) بقرار من المشرف! لا يمكنك تدوير العجلة أو كسب النقاط حتى يتم فك الحظر.`
+        : `🚫 Your player account (${myPlayerName}) is blocked by the admin!`);
+      return false;
+    }
+
+    return true;
+  }
+
   // Wheel Initialization
   const spinner = new SpinnerWheel('wheelCanvas', {
+    beforeSpin: () => {
+      return canCurrentPlayerSpin();
+    },
     onSpinStart: () => {
+      // Align active turn to the spinning player's team
+      if (myTeamId) {
+        const teams = window.gameStateManager.getTeams();
+        const tIdx = teams.findIndex(t => t.id === myTeamId);
+        if (tIdx !== -1) {
+          window.gameStateManager.setActiveTeamIndex(tIdx);
+        }
+      }
       spinBtn.disabled = true;
       soundController.playClick();
     },
@@ -181,6 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   spinBtn.addEventListener('click', () => {
+    if (!canCurrentPlayerSpin()) return;
     soundController.init();
     spinner.spin(1 + Math.random() * 0.4);
   });
@@ -237,6 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const memCount = team.members ? team.members.length : 0;
       const isFull = memCount >= (team.maxMembers || 5);
       const isNegative = team.score < 0;
+      const isTeamBlk = !!team.isBlocked;
 
       card.innerHTML = `
         ${idx === activeIdx ? `<div class="team-turn-badge">${UI_TRANSLATIONS[currentLang].turnBadge}</div>` : ''}
@@ -248,7 +386,10 @@ document.addEventListener('DOMContentLoaded', () => {
               ${rankBadge ? `<span style="position:absolute; bottom:-6px; right:-6px; font-size:16px;" title="ترتيب المتصدرين">${rankBadge}</span>` : ''}
             </div>
             <div>
-              <div class="team-name-text">${team.name}</div>
+              <div class="team-name-text" style="display: flex; align-items: center; gap: 6px;">
+                <span>${team.name}</span>
+                ${isTeamBlk ? '<span style="background:#FFEBEE; color:#C62828; border:1px solid #FFCDD2; font-size:10px; font-weight:800; padding:1px 6px; border-radius:4px;">🚫 محظور</span>' : ''}
+              </div>
               <div style="font-size: 11.5px; color: var(--text-muted); font-weight: 700;">
                 <span class="slot-capacity ${isFull ? 'full' : ''}">
                   ${isFull ? '🔴 مكتمل (5/5)' : `👥 ${memCount}/${team.maxMembers || 5} أعضاء`}
@@ -266,10 +407,14 @@ document.addEventListener('DOMContentLoaded', () => {
         <div style="border-top: 1px dashed rgba(220, 200, 210, 0.6); padding-top: 8px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
           ${team.members && team.members.length > 0 ? team.members.map(m => `
             <div style="background: ${(m.points || 0) < 0 ? '#FFF2F2' : '#F8F4F6'}; border: 1px solid ${(m.points || 0) < 0 ? '#FFCDD2' : 'transparent'}; border-radius: 8px; padding: 5px 10px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
-              <span style="font-weight: 800; color: #2C2623;">👤 ${m.name}</span>
-              <div style="display: flex; gap: 8px; font-weight: 800;">
-                <span style="${(m.points || 0) < 0 ? 'color: #D32F2F;' : 'color: #D82655;'}">⭐ ${m.points || 0} نقطة ${(m.points || 0) < 0 ? '⚠️' : ''}</span>
-                <span style="color: #2E7D32;">🎯 ${m.questionsSolved || 0} حلول</span>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-weight: 800; color: #2C2623;">👤 ${m.name}</span>
+                ${m.isBlocked ? '<span style="background:#FFEBEE; color:#C62828; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px;">🚫 محظور</span>' : ''}
+              </div>
+              <div style="display: flex; gap: 8px; font-weight: 800; align-items: center;">
+                <span style="${(m.points || 0) < 0 ? 'color: #D32F2F;' : 'color: #D82655;'}">⭐ ${m.points || 0} ${(m.points || 0) < 0 ? '⚠️' : ''}</span>
+                <span style="color: #2E7D32;">🎯 ${m.questionsSolved || 0}</span>
+                <button class="btn-cert-mini" data-team="${team.id}" data-member="${encodeURIComponent(m.name)}" title="استخراج شهادة الإنجاز" style="background:#FFF9C4; border:1px solid #FBC02D; color:#E65100; border-radius:6px; font-size:11px; padding:2px 7px; cursor:pointer; font-weight:800;">🏆 شهادة</button>
               </div>
             </div>
           `).join('') : '<span style="font-size: 11.5px; color: #9E9E9E; text-align: center;">بانتظار انضمام الأعضاء...</span>'}
@@ -277,6 +422,17 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       list.appendChild(card);
+    });
+
+    // Wire up mini certificate buttons
+    list.querySelectorAll('.btn-cert-mini').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tId = btn.getAttribute('data-team');
+        const mName = decodeURIComponent(btn.getAttribute('data-member'));
+        soundController.playClick();
+        openCertificateModal(tId, mName);
+      });
     });
   }
 
@@ -405,6 +561,10 @@ document.addEventListener('DOMContentLoaded', () => {
         showJoinMsg(currentLang === 'ar' ? '❌ رقم أو كود غير صحيح! يرجى التأكد من الرقم المخصص لفريقك من المحاضر.' : '❌ Invalid code! Please check with the admin.', 'error');
       } else if (res.error === 'TEAM_FULL') {
         showJoinMsg(currentLang === 'ar' ? `⚠️ هذا الفريق مكتمل الآن (${res.capacity}/5)! لقد اكتمل عدد أعضاء الفريق ولا يمكن استقبال المزيد.` : `⚠️ This team is already FULL (${res.capacity}/5)!`, 'error');
+      } else if (res.error === 'TEAM_BLOCKED') {
+        showJoinMsg(currentLang === 'ar' ? `🚫 هذا الفريق (${res.teamName}) محظور حالياً بقرار من المشرف.` : `🚫 This team is currently blocked by the admin.`, 'error');
+      } else if (res.error === 'MEMBER_BLOCKED') {
+        showJoinMsg(currentLang === 'ar' ? `🚫 تم حظر هذا الحساب (${res.memberName}) بقرار من المشرف.` : `🚫 This account is blocked by the admin.`, 'error');
       } else if (res.error === 'ALREADY_JOINED') {
         showJoinMsg(currentLang === 'ar' ? `أنت مسجل بالفعل في ${res.teamName}!` : `You are already registered!`, 'info');
       }
@@ -412,16 +572,32 @@ document.addEventListener('DOMContentLoaded', () => {
       soundController.playSuccess();
       myTeamId = res.teamId;
       myPlayerName = name;
-      localStorage.setItem('my_registered_team_id', res.teamId);
-      localStorage.setItem('my_registered_player_name', name);
 
-      showJoinMsg(currentLang === 'ar' ? `🎉 أهلاً بك يا ${name}! تم تثبيتك بنجاح في "${res.teamName}" (عضو رقم ${res.memberCount} من 5)!` : `🎉 Welcome ${name}! Successfully joined "${res.teamName}"!`, 'success');
+      // Pure isolated session per browser tab
+      sessionStorage.setItem('my_registered_team_id', res.teamId);
+      sessionStorage.setItem('my_registered_player_name', name);
+      localStorage.removeItem('my_registered_team_id');
+      localStorage.removeItem('my_registered_player_name');
+
+      if (res.reconnected) {
+        showJoinMsg(currentLang === 'ar'
+          ? `🎉 أهلاً بعودتك يا ${name}! تم استعادة جلستك ورصيدك السليم (${res.member.points || 0} نقطة) في فريق "${res.teamName}"!`
+          : `🎉 Welcome back ${name}! Restored your session (${res.member.points || 0} pts) in "${res.teamName}"!`, 'success');
+      } else {
+        showJoinMsg(currentLang === 'ar'
+          ? `🎉 أهلاً بك يا ${name}! تم تثبيتك بنجاح في "${res.teamName}" (عضو رقم ${res.memberCount} من 5)!`
+          : `🎉 Welcome ${name}! Successfully joined "${res.teamName}"!`, 'success');
+      }
 
       updatePlayerBadge();
       renderJoinTeamsList();
+      renderScoreboard();
       setTimeout(() => {
         joinTeamModalBackdrop.classList.remove('active');
-      }, 1800);
+        setTimeout(() => {
+          joinTeamModalBackdrop.style.display = 'none';
+        }, 250);
+      }, 1000);
     }
   });
 
@@ -569,6 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeModal() {
+    isSubmittingAnswer = false;
     if (currentTimerInterval) {
       clearInterval(currentTimerInterval);
       currentTimerInterval = null;
@@ -587,6 +764,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // =========================================================================
 
   function openActivityModal(segment) {
+    isSubmittingAnswer = false;
     if (currentTimerInterval) {
       clearInterval(currentTimerInterval);
       currentTimerInterval = null;
@@ -680,6 +858,10 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       btn.addEventListener('click', () => {
+        if (!canCurrentPlayerSpin()) return;
+        if (isSubmittingAnswer) return;
+        isSubmittingAnswer = true;
+
         clearInterval(currentTimerInterval);
         const allBtns = optionsGrid.querySelectorAll('.quiz-option-btn');
         allBtns.forEach(b => b.disabled = true);
@@ -690,13 +872,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (optIdx === item.correctIndex) {
           btn.classList.add('correct');
           soundController.playSuccess();
-          window.gameStateManager.awardActiveTeam(30);
+          window.gameStateManager.awardActiveTeam(30, myPlayerName);
           expCard.innerHTML = `<strong>🎉 ${lang === 'ar' ? 'إجابة صحيحة! (+30 نقطة)' : 'Correct! (+30 Points)'}</strong><br>${expText}`;
         } else {
           btn.classList.add('wrong');
           allBtns[item.correctIndex].classList.add('correct');
           soundController.playBuzzer();
-          window.gameStateManager.penalizeActiveTeam(15);
+          window.gameStateManager.penalizeActiveTeam(15, myPlayerName);
           expCard.innerHTML = `<strong>❌ ${lang === 'ar' ? 'إجابة خاطئة! (خصم -15 نقطة)' : 'Wrong Answer! (-15 Points)'}</strong><br>${expText}`;
         }
         expCard.classList.add('visible');
@@ -804,6 +986,10 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       btn.addEventListener('click', () => {
+        if (!canCurrentPlayerSpin()) return;
+        if (isSubmittingAnswer) return;
+        isSubmittingAnswer = true;
+
         const allBtns = optionsGrid.querySelectorAll('.quiz-option-btn');
         allBtns.forEach(b => b.disabled = true);
         const ansCard = document.getElementById('mysteryAnswerCard');
@@ -811,13 +997,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (optIdx === (item.correctIndex || 0)) {
           btn.classList.add('correct');
           soundController.playSuccess();
-          window.gameStateManager.awardActiveTeam(30);
+          window.gameStateManager.awardActiveTeam(30, myPlayerName);
           ansCard.innerHTML = `<strong>🎉 ${lang === 'ar' ? 'تخمين عبقري صحيح! (+30 نقطة)' : 'Brilliant Guess! (+30 Points)'}</strong><br>الحل: ${answer}<br>${funFact}`;
         } else {
           btn.classList.add('wrong');
           allBtns[item.correctIndex || 0].classList.add('correct');
           soundController.playBuzzer();
-          window.gameStateManager.penalizeActiveTeam(15);
+          window.gameStateManager.penalizeActiveTeam(15, myPlayerName);
           ansCard.innerHTML = `<strong>❌ ${lang === 'ar' ? 'تخمين غير صحيح! (خصم -15 نقطة)' : 'Wrong Guess! (-15 Points)'}</strong><br>الحل الصحيح هو: ${answer}<br>${funFact}`;
         }
         ansCard.classList.add('visible');
@@ -860,6 +1046,10 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       btn.addEventListener('click', () => {
+        if (!canCurrentPlayerSpin()) return;
+        if (isSubmittingAnswer) return;
+        isSubmittingAnswer = true;
+
         const allBtns = optionsGrid.querySelectorAll('.quiz-option-btn');
         allBtns.forEach(b => b.disabled = true);
         const expCard = document.getElementById('fixExplanationCard');
@@ -867,13 +1057,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (optIdx === (item.correctIndex || 0)) {
           btn.classList.add('correct');
           soundController.playSuccess();
-          window.gameStateManager.awardActiveTeam(30);
+          window.gameStateManager.awardActiveTeam(30, myPlayerName);
           expCard.innerHTML = `<strong>✅ ${lang === 'ar' ? 'تصحيح ممتاز! (+30 نقطة)' : 'Correct Fix! (+30 Points)'}</strong><br>${explanation}`;
         } else {
           btn.classList.add('wrong');
           allBtns[item.correctIndex || 0].classList.add('correct');
           soundController.playBuzzer();
-          window.gameStateManager.penalizeActiveTeam(15);
+          window.gameStateManager.penalizeActiveTeam(15, myPlayerName);
           expCard.innerHTML = `<strong>❌ ${lang === 'ar' ? 'اختيار خاطئ! (خصم -15 نقطة)' : 'Incorrect! (-15 Points)'}</strong><br>${explanation}`;
         }
         expCard.classList.add('visible');
@@ -1081,16 +1271,575 @@ document.addEventListener('DOMContentLoaded', () => {
       rewardCard.classList.add('visible');
 
       if (item.effect === 'points_50') {
-        window.gameStateManager.awardActiveTeam(50);
+        window.gameStateManager.awardActiveTeam(50, myPlayerName);
       } else if (item.effect === 'steal_20') {
         const teams = window.gameStateManager.getTeams();
         const activeIdx = window.gameStateManager.getState().activeTeamIndex || 0;
         const otherIdx = (activeIdx + 1) % teams.length;
         if (teams[otherIdx]) {
           window.gameStateManager.updateTeamScore(teams[otherIdx].id, -20);
-          window.gameStateManager.awardActiveTeam(20);
+          window.gameStateManager.awardActiveTeam(20, myPlayerName);
         }
       }
+    });
+  }
+
+  // =========================================================================
+  // Certificate of Scientific Achievement & Excellence (Canvas 1200x850 HD)
+  // =========================================================================
+
+  function drawCertificate(studentName, teamName, teamAvatar, teamScore, memberScore, questionsSolved, rankName) {
+    if (!certCanvas) return;
+    const ctx = certCanvas.getContext('2d');
+    const width = 1200;
+    const height = 850;
+
+    certCanvas.width = width;
+    certCanvas.height = height;
+
+    // 1. Background Gradient - Rich Presentation Royal Navy / Emerald Slate
+    const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 80, width / 2, height / 2, 720);
+    bgGrad.addColorStop(0, '#0F263B');
+    bgGrad.addColorStop(0.55, '#0A1C2C');
+    bgGrad.addColorStop(1, '#050D15');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. Faint Biology Aesthetic Micro Grid & Watermarks
+    ctx.save();
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.035)';
+    ctx.lineWidth = 1;
+    for (let x = 60; x < width; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 40);
+      ctx.lineTo(x, height - 40);
+      ctx.stroke();
+    }
+    for (let y = 60; y < height; y += 40) {
+      ctx.beginPath();
+      ctx.moveTo(40, y);
+      ctx.lineTo(width - 40, y);
+      ctx.stroke();
+    }
+
+    // Vascular heartbeat line watermark across center
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.06)';
+    ctx.lineWidth = 2.5;
+    ctx.moveTo(80, 425);
+    for (let x = 80; x < width - 80; x += 30) {
+      const y = 425 + Math.sin(x * 0.05) * (x > 450 && x < 750 ? 55 : 12);
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // 3. Ornate Golden Borders
+    ctx.save();
+    // Outer border
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(26, 26, width - 52, height - 52);
+
+    // Inner fine gold frame
+    ctx.strokeStyle = '#99751C';
+    ctx.lineWidth = 1.8;
+    ctx.strokeRect(36, 36, width - 72, height - 72);
+
+    // Decorative inner beaded gold frame
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.35)';
+    ctx.setLineDash([4, 8]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(46, 46, width - 92, height - 92);
+    ctx.setLineDash([]); // Reset dash
+
+    // 4 Corner Guilloche / Rosettes
+    const corners = [
+      { x: 46, y: 46 },
+      { x: width - 46, y: 46 },
+      { x: 46, y: height - 46 },
+      { x: width - 46, y: height - 46 }
+    ];
+    corners.forEach(c => {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.strokeStyle = '#FFD700';
+      ctx.fillStyle = '#D4AF37';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+    ctx.restore();
+
+    // 4. Header Badge Pill
+    ctx.save();
+    const pillW = 560;
+    const pillH = 36;
+    const pillX = (width - pillW) / 2;
+    const pillY = 70;
+    ctx.fillStyle = 'rgba(212, 175, 55, 0.12)';
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillW, pillH, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = 'bold 15px "Tajawal", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FFD54F';
+    ctx.textAlign = 'center';
+    ctx.fillText('🔬 مَنْظُومَةُ العَرْضِ التَّقْدِيمِيِّ: الجِهَازُ الدَّوْرِيُّ فِي الحَيَوَانَاتِ وَالحَشَرَاتِ 🐞', width / 2, pillY + 24);
+    ctx.restore();
+
+    // 5. Main Certificate Title (Golden Calligraphy)
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = '900 44px "Tajawal", "Amiri", "Traditional Arabic", serif';
+    const titleGrad = ctx.createLinearGradient(300, 140, 900, 140);
+    titleGrad.addColorStop(0, '#FFE082');
+    titleGrad.addColorStop(0.5, '#FFF8E1');
+    titleGrad.addColorStop(1, '#FFCA28');
+    ctx.fillStyle = titleGrad;
+    ctx.shadowColor = 'rgba(255, 215, 0, 0.4)';
+    ctx.shadowBlur = 14;
+    ctx.fillText('شَـــهَــادَةُ إِنجَـــازٍ وَتَـفَـــوُّقٍ عِلْمِـــيّ', width / 2, 150);
+
+    ctx.shadowBlur = 0;
+    ctx.font = 'italic 600 15px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#90A4AE';
+    ctx.fillText('CERTIFICATE OF SCIENTIFIC EXCELLENCE & ACTIVE CONTRIBUTION', width / 2, 182);
+    ctx.restore();
+
+    // 6. Citation Text
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = '700 18px "Tajawal", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#ECEFF1';
+    ctx.fillText('تَشْهَدُ إِدَارَةُ المَسَابَقَةِ وَلَجْنَةُ التَّحْكِيمِ بِأَنَّ الطَّالِبَ / البَاحِثَ المتميّز:', width / 2, 235);
+
+    // 7. Student Name - Large Glowing Gold
+    ctx.font = '900 48px "Tajawal", "Amiri", serif';
+    const nameGrad = ctx.createLinearGradient(350, 300, 850, 300);
+    nameGrad.addColorStop(0, '#FFE57F');
+    nameGrad.addColorStop(0.5, '#FFFFFF');
+    nameGrad.addColorStop(1, '#FFD54F');
+    ctx.fillStyle = nameGrad;
+    ctx.shadowColor = 'rgba(255, 215, 0, 0.6)';
+    ctx.shadowBlur = 20;
+    ctx.fillText(studentName || 'الباحث المتميز', width / 2, 300);
+
+    // Name Underline Ribbon Flourish
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(width / 2 - 240, 320);
+    ctx.lineTo(width / 2 + 240, 320);
+    ctx.stroke();
+
+    // Golden Diamond in Center of underline
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.moveTo(width / 2, 314);
+    ctx.lineTo(width / 2 + 8, 320);
+    ctx.lineTo(width / 2, 326);
+    ctx.lineTo(width / 2 - 8, 320);
+    ctx.closePath();
+    ctx.fill();
+
+    // 8. Team Affiliation
+    ctx.font = 'bold 22px "Tajawal", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#4DD0E1';
+    ctx.fillText(`عُضْوُ فَرِيقِ: ${teamName} (${teamAvatar})`, width / 2, 360);
+
+    // Praise description matching the 15-slide presentation topics
+    ctx.font = '500 16.5px "Tajawal", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#B0BEC5';
+    ctx.fillText('تَقْدِيراً لِمُشَارَكَتِهِ الفَعَّالَةِ وَتَفَوُّقِهِ المَعْرِفِيِّ فِي اسْتِيعَابِ فِسْيُولُوجْيَا أَنْظِمَةِ الدَّوَرَانِ المَفْتُوحَةِ وَالمُغْلَقَةِ،', width / 2, 400);
+    ctx.fillText('وَآلِيَّاتِ تَدَفُّقِ سَائِلِ الهِيمُولِيمْفِ وَكِفَاءَةِ القُلُوبِ الأُنْبُوبِيَّةِ وَصَمَّامَاتِ الأُوسْتْيَا وَتَبَادُلِ الغَازَاتِ فِي الكَائِنَاتِ الحَيَّةِ.', width / 2, 428);
+    ctx.restore();
+
+    // 9. Stat Cards Row (3 Cards: Member Score, Questions Solved, Team Score & Rank)
+    const cardY = 475;
+    const cardH = 100;
+    const cardW = 310;
+    const gap = 35;
+    const startX = (width - (cardW * 3 + gap * 2)) / 2;
+
+    const cardsData = [
+      {
+        icon: '⭐',
+        title: 'النقاط الفردية المكتسبة',
+        val: `${memberScore >= 0 ? '+' : ''}${memberScore} نقطة`,
+        sub: `إنجاز شخصي مباشر`,
+        color: '#69F0AE',
+        bg: 'rgba(0, 230, 118, 0.08)',
+        border: 'rgba(0, 230, 118, 0.4)'
+      },
+      {
+        icon: '🎯',
+        title: 'التحديات المنجزة بنجاح',
+        val: `${questionsSolved} أسئلة/أنشطة`,
+        sub: `حل علمي دقيق`,
+        color: '#40C4FF',
+        bg: 'rgba(0, 176, 255, 0.08)',
+        border: 'rgba(0, 176, 255, 0.4)'
+      },
+      {
+        icon: '🏆',
+        title: 'مجموع سكور الفريق والترتيب',
+        val: `${teamScore} نقطة`,
+        sub: `${rankName}`,
+        color: '#FFD740',
+        bg: 'rgba(255, 215, 64, 0.08)',
+        border: 'rgba(255, 215, 64, 0.4)'
+      }
+    ];
+
+    cardsData.forEach((cd, i) => {
+      const cx = startX + i * (cardW + gap);
+      ctx.save();
+      ctx.fillStyle = cd.bg;
+      ctx.strokeStyle = cd.border;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(cx, cardY, cardW, cardH, 14);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 13.5px "Tajawal", "Segoe UI", sans-serif';
+      ctx.fillStyle = '#CFD8DC';
+      ctx.fillText(`${cd.icon} ${cd.title}`, cx + cardW / 2, cardY + 28);
+
+      ctx.font = '900 24px "Tajawal", "Outfit", sans-serif';
+      ctx.fillStyle = cd.color;
+      ctx.fillText(cd.val, cx + cardW / 2, cardY + 62);
+
+      ctx.font = '600 12.5px "Tajawal", sans-serif';
+      ctx.fillStyle = '#90A4AE';
+      ctx.fillText(cd.sub, cx + cardW / 2, cardY + 86);
+      ctx.restore();
+    });
+
+    // 10. Official Footer (Left Verification, Center Gold 3D Seal, Right Signature & Date)
+    const footerY = 640;
+
+    // Left: Digital Verification Box
+    ctx.save();
+    const verW = 240;
+    const verH = 120;
+    const verX = 90;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.3)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(verX, footerY, verW, verH, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 12px "Tajawal", sans-serif';
+    ctx.fillStyle = '#FFD54F';
+    ctx.fillText('🛡️ كود التحقق والاعتماد الرقمي', verX + verW / 2, footerY + 28);
+
+    ctx.font = 'bold 16px "Outfit", monospace';
+    ctx.fillStyle = '#ECEFF1';
+    const certCode = 'BIO-' + Math.abs(hashString(studentName + teamName)).toString(16).toUpperCase().padStart(8, '0');
+    ctx.fillText(certCode, verX + verW / 2, footerY + 58);
+
+    ctx.font = '500 11.5px "Tajawal", sans-serif';
+    ctx.fillStyle = '#78909C';
+    ctx.fillText('منظومة التقييم الفوري 2026', verX + verW / 2, footerY + 84);
+    ctx.fillText('مسابقة تفاعلية أونلاين', verX + verW / 2, footerY + 104);
+    ctx.restore();
+
+    // Center: 3D Official Gold Biology Excellence Seal
+    ctx.save();
+    const sealX = width / 2;
+    const sealY = footerY + 60;
+    const sealR = 56;
+
+    // 16-point golden starburst background
+    ctx.fillStyle = '#D4AF37';
+    ctx.beginPath();
+    const points = 16;
+    for (let p = 0; p < points * 2; p++) {
+      const radius = (p % 2 === 0) ? sealR + 6 : sealR - 4;
+      const angle = (p * Math.PI) / points;
+      const px = sealX + Math.cos(angle) * radius;
+      const py = sealY + Math.sin(angle) * radius;
+      if (p === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner Seal Circle with Gold Gradient
+    const sealGrad = ctx.createRadialGradient(sealX - 10, sealY - 10, 5, sealX, sealY, sealR);
+    sealGrad.addColorStop(0, '#FFE082');
+    sealGrad.addColorStop(0.6, '#FFB300');
+    sealGrad.addColorStop(1, '#FF8F00');
+    ctx.fillStyle = sealGrad;
+    ctx.beginPath();
+    ctx.arc(sealX, sealY, sealR - 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Seal Text
+    ctx.textAlign = 'center';
+    ctx.font = '900 11.5px "Tajawal", sans-serif';
+    ctx.fillStyle = '#3E2723';
+    ctx.fillText('★ خَتْمُ التَّفَوُّقِ ★', sealX, sealY - 18);
+    ctx.font = '900 18px "Outfit", sans-serif';
+    ctx.fillText('2026', sealX, sealY + 4);
+    ctx.font = '800 9.5px "Outfit", sans-serif';
+    ctx.fillText('OFFICIAL MERIT', sealX, sealY + 22);
+    ctx.fillText('BIOLOGY SEAL', sealX, sealY + 33);
+    ctx.restore();
+
+    // Right: Date & Academic Supervisor Signature
+    ctx.save();
+    const sigW = 240;
+    const sigH = 120;
+    const sigX = width - 90 - sigW;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.3)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(sigX, footerY, sigW, sigH, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 12px "Tajawal", sans-serif';
+    ctx.fillStyle = '#CFD8DC';
+    ctx.fillText(`📅 التاريخ: أكتوبر 2026 م`, sigX + sigW / 2, footerY + 28);
+
+    ctx.font = 'italic 700 19px "Amiri", "Traditional Arabic", cursive';
+    ctx.fillStyle = '#80DEEA';
+    ctx.fillText('د. المشرف الأكاديمي', sigX + sigW / 2, footerY + 64);
+
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(sigX + 30, footerY + 76);
+    ctx.lineTo(sigX + sigW - 30, footerY + 76);
+    ctx.stroke();
+
+    ctx.font = '600 11px "Tajawal", sans-serif';
+    ctx.fillStyle = '#90A4AE';
+    ctx.fillText('لجنة تحكيم العرض التقديمي والمسابقة', sigX + sigW / 2, footerY + 98);
+    ctx.restore();
+  }
+
+  function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return hash;
+  }
+
+  function openCertificateModal(presetTeamId = null, presetMemberName = null) {
+    if (!certModalBackdrop) return;
+    populateCertSelectors(presetTeamId || myTeamId, presetMemberName || myPlayerName);
+    certModalBackdrop.style.display = 'flex';
+    requestAnimationFrame(() => certModalBackdrop.classList.add('active'));
+    refreshCertificateView();
+  }
+
+  function closeCertificateModal() {
+    if (!certModalBackdrop) return;
+    certModalBackdrop.classList.remove('active');
+    setTimeout(() => {
+      certModalBackdrop.style.display = 'none';
+    }, 250);
+  }
+
+  function populateCertSelectors(selectedTeamId = null, selectedMemberName = null) {
+    if (!certTeamSelect) return;
+    certTeamSelect.innerHTML = '';
+    const teams = window.gameStateManager.getTeams();
+
+    teams.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = `${t.avatar} ${t.name}`;
+      certTeamSelect.appendChild(opt);
+    });
+
+    if (selectedTeamId && teams.some(t => t.id === selectedTeamId)) {
+      certTeamSelect.value = selectedTeamId;
+    } else if (teams.length > 0) {
+      certTeamSelect.value = teams[0].id;
+    }
+
+    populateMembersForTeam(certTeamSelect.value, selectedMemberName);
+  }
+
+  function populateMembersForTeam(teamId, selectedMemberName = null) {
+    if (!certMemberSelect) return;
+    certMemberSelect.innerHTML = '';
+    const teams = window.gameStateManager.getTeams();
+    const team = teams.find(t => t.id === teamId);
+
+    if (team && team.members && team.members.length > 0) {
+      team.members.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.name;
+        opt.textContent = `👤 ${m.name} (${m.points || 0} نقطة)`;
+        certMemberSelect.appendChild(opt);
+      });
+
+      if (selectedMemberName && team.members.some(m => m.name === selectedMemberName)) {
+        certMemberSelect.value = selectedMemberName;
+      } else {
+        certMemberSelect.value = team.members[0].name;
+      }
+
+      if (certCustomNameInput) {
+        certCustomNameInput.value = certMemberSelect.value;
+      }
+    } else {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '(لا يوجد أعضاء مسجلين بهذا الفريق بعد)';
+      certMemberSelect.appendChild(opt);
+      if (certCustomNameInput && !certCustomNameInput.value) {
+        certCustomNameInput.value = myPlayerName || 'المتسابق المتميز';
+      }
+    }
+  }
+
+  function refreshCertificateView() {
+    const teams = window.gameStateManager.getTeams();
+    const selectedTeamId = certTeamSelect ? certTeamSelect.value : (myTeamId || (teams[0] ? teams[0].id : null));
+    const team = teams.find(t => t.id === selectedTeamId) || teams[0];
+
+    const certLang = certLangSelect ? certLangSelect.value : currentLang;
+    const isEn = (certLang === 'en');
+
+    // Compute rank
+    const sortedTeams = [...teams].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const rankIdx = sortedTeams.findIndex(t => t.id === (team ? team.id : ''));
+    const rankNamesAr = ['المركز الأول 🥇', 'المركز الثاني 🥈', 'المركز الثالث 🥉', 'المركز الرابع', 'المركز الخامس', 'المركز السادس', 'المركز السابع', 'المركز الثامن', 'المركز التاسع', 'المركز العاشر'];
+    const rankNamesEn = ['1st Place 🥇', '2nd Place 🥈', '3rd Place 🥉', '4th Place', '5th Place', '6th Place', '7th Place', '8th Place', '9th Place', '10th Place'];
+    const rankName = isEn
+      ? (rankIdx >= 0 ? rankNamesEn[rankIdx] : '1st Place 🥇')
+      : (rankIdx >= 0 ? rankNamesAr[rankIdx] : 'المركز الأول 🥇');
+
+    let studentName = (certCustomNameInput && certCustomNameInput.value.trim()) || '';
+    if (!studentName && certMemberSelect && certMemberSelect.value) {
+      studentName = certMemberSelect.value;
+    }
+    if (!studentName) studentName = myPlayerName || (isEn ? 'Distinguished Participant' : 'المتسابق المتميز');
+
+    let memberScore = 0;
+    let questionsSolved = 0;
+    if (team && team.members) {
+      const mem = team.members.find(m => m.name === studentName) || team.members.find(m => m.name === (certMemberSelect ? certMemberSelect.value : ''));
+      if (mem) {
+        memberScore = mem.points || 0;
+        questionsSolved = mem.questionsSolved || 0;
+      }
+    }
+
+    if (window.CertificateRenderer) {
+      window.CertificateRenderer.draw(certCanvas, {
+        studentName,
+        teamName: team ? team.name : (isEn ? 'Contest Team' : 'فريق المسابقة'),
+        teamAvatar: team ? team.avatar : '🐞',
+        teamScore: team ? team.score : 0,
+        memberScore,
+        questionsSolved,
+        rankName,
+        lang: certLang,
+        witnessTitle: isEn ? 'Central Admin Control Panel' : 'لوحة تحكم المشرف المركزية'
+      });
+    }
+  }
+
+  function downloadCertificatePng() {
+    if (!certCanvas || !window.CertificateRenderer) return;
+    const studentName = (certCustomNameInput && certCustomNameInput.value.trim()) || myPlayerName || 'المتسابق';
+    window.CertificateRenderer.downloadPng(certCanvas, `شهادة_تفوق_${studentName.replace(/\s+/g, '_')}.png`);
+    soundController.playSuccess();
+  }
+
+  function printCertificatePdf() {
+    if (!certCanvas || !window.CertificateRenderer) return;
+    const studentName = (certCustomNameInput && certCustomNameInput.value.trim()) || myPlayerName || 'المتسابق';
+    window.CertificateRenderer.printPdf(certCanvas, `شهادة إنجاز - ${studentName}`);
+  }
+
+  // Connect Certificate Listeners
+  if (openCertBtn) {
+    openCertBtn.addEventListener('click', () => {
+      soundController.playClick();
+      openCertificateModal();
+    });
+  }
+
+  if (certCloseBtn) {
+    certCloseBtn.addEventListener('click', () => {
+      closeCertificateModal();
+    });
+  }
+
+  if (certModalBackdrop) {
+    certModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === certModalBackdrop) {
+        closeCertificateModal();
+      }
+    });
+  }
+
+  if (certTeamSelect) {
+    certTeamSelect.addEventListener('change', () => {
+      populateMembersForTeam(certTeamSelect.value);
+      refreshCertificateView();
+    });
+  }
+
+  if (certMemberSelect) {
+    certMemberSelect.addEventListener('change', () => {
+      if (certCustomNameInput && certMemberSelect.value) {
+        certCustomNameInput.value = certMemberSelect.value;
+      }
+      refreshCertificateView();
+    });
+  }
+
+  if (certCustomNameInput) {
+    certCustomNameInput.addEventListener('input', () => {
+      refreshCertificateView();
+    });
+  }
+
+  if (certLangSelect) {
+    certLangSelect.addEventListener('change', () => {
+      refreshCertificateView();
+    });
+  }
+
+  if (btnDownloadCertPng) {
+    btnDownloadCertPng.addEventListener('click', () => {
+      downloadCertificatePng();
+    });
+  }
+
+  if (btnPrintCertPdf) {
+    btnPrintCertPdf.addEventListener('click', () => {
+      printCertificatePdf();
     });
   }
 

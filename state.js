@@ -227,6 +227,23 @@ class GameStateManager {
               this.state.isFrozen = false;
               localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(this.state));
               this.notify();
+            } else if (data.action === 'TEAM_BLOCK_TOGGLED') {
+              const team = this.state.teams.find(t => t.id === data.teamId);
+              if (team) {
+                team.isBlocked = data.isBlocked;
+                localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(this.state));
+                this.notify();
+              }
+            } else if (data.action === 'MEMBER_BLOCK_TOGGLED') {
+              const team = this.state.teams.find(t => t.id === data.teamId);
+              if (team && team.members) {
+                const member = team.members.find(m => m.name === data.memberName);
+                if (member) {
+                  member.isBlocked = data.isBlocked;
+                  localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(this.state));
+                  this.notify();
+                }
+              }
             }
           }
         } catch (err) {
@@ -313,10 +330,18 @@ class GameStateManager {
     try {
       localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(this.state));
       this.notify();
-      this.broadcastCloudState();
+      this.debouncedBroadcastCloudState();
     } catch (e) {
       console.error('Failed to save state', e);
     }
+  }
+
+  debouncedBroadcastCloudState() {
+    if (this._broadcastTimeout) clearTimeout(this._broadcastTimeout);
+    this._broadcastTimeout = setTimeout(() => {
+      this.broadcastCloudState();
+      this._broadcastTimeout = null;
+    }, 120);
   }
 
   subscribe(callback) {
@@ -479,27 +504,58 @@ class GameStateManager {
     const team = this.state.teams.find(t => String(t.code).trim().toUpperCase() === cleanCode);
     if (!team) return { success: false, error: 'INVALID_CODE' };
 
+    if (team.isBlocked) {
+      return { success: false, error: 'TEAM_BLOCKED', teamName: team.name };
+    }
+
     if (!team.members) team.members = [];
     const maxCapacity = team.maxMembers || 5;
 
-    if (team.members.length >= maxCapacity) {
-      return { success: false, error: 'TEAM_FULL', capacity: maxCapacity, teamName: team.name };
+    // Check if member is reconnecting with existing name
+    const existingMember = team.members.find(m => m.name === cleanName);
+    if (existingMember) {
+      if (existingMember.isBlocked) {
+        return { success: false, error: 'MEMBER_BLOCKED', teamName: team.name, memberName: cleanName };
+      }
+      return { 
+        success: true, 
+        reconnected: true, 
+        teamId: team.id, 
+        teamName: team.name, 
+        memberCount: team.members.length, 
+        maxCapacity,
+        member: existingMember 
+      };
     }
 
-    const alreadyJoined = team.members.some(m => m.name === cleanName);
-    if (alreadyJoined) {
-      return { success: false, error: 'ALREADY_JOINED', teamName: team.name };
+    if (team.members.length >= maxCapacity) {
+      return { success: false, error: 'TEAM_FULL', capacity: maxCapacity, teamName: team.name };
     }
 
     team.members.push({
       name: cleanName,
       points: 0,
       questionsSolved: 0,
-      role: team.members.length === 0 ? 'قائد الفريق' : 'عضو'
+      role: team.members.length === 0 ? 'قائد الفريق' : 'عضو',
+      isBlocked: false
     });
 
     this.saveState();
-    return { success: true, teamId: team.id, teamName: team.name, memberCount: team.members.length, maxCapacity };
+    return { success: true, reconnected: false, teamId: team.id, teamName: team.name, memberCount: team.members.length, maxCapacity };
+  }
+
+  // Member leaves team to allow switching
+  leaveTeam(teamId, memberName) {
+    const team = this.state.teams.find(t => t.id === teamId);
+    if (!team || !team.members) return { success: false };
+
+    const idx = team.members.findIndex(m => m.name === memberName);
+    if (idx !== -1) {
+      team.members.splice(idx, 1);
+      this.saveState();
+      return { success: true };
+    }
+    return { success: false };
   }
 
   addTeam(name, code, avatar = '🐞') {
@@ -615,6 +671,47 @@ class GameStateManager {
       reason: this.state.frozenReason
     });
     return this.state.isFrozen;
+  }
+
+  toggleTeamBlock(teamId, forcedState = null) {
+    const team = this.state.teams.find(t => t.id === teamId);
+    if (team) {
+      team.isBlocked = (typeof forcedState === 'boolean') ? forcedState : !team.isBlocked;
+      this.saveState();
+      this.broadcastCloudAction('TEAM_BLOCK_TOGGLED', { teamId, isBlocked: team.isBlocked });
+      return team.isBlocked;
+    }
+    return false;
+  }
+
+  toggleMemberBlock(teamId, memberName, forcedState = null) {
+    const team = this.state.teams.find(t => t.id === teamId);
+    if (team && team.members) {
+      const member = team.members.find(m => m.name === memberName);
+      if (member) {
+        member.isBlocked = (typeof forcedState === 'boolean') ? forcedState : !member.isBlocked;
+        this.saveState();
+        this.broadcastCloudAction('MEMBER_BLOCK_TOGGLED', { teamId, memberName, isBlocked: member.isBlocked });
+        return member.isBlocked;
+      }
+    }
+    return false;
+  }
+
+  isTeamBlocked(teamId) {
+    const team = this.state.teams.find(t => t.id === teamId);
+    return team ? !!team.isBlocked : false;
+  }
+
+  isMemberBlocked(teamId, memberName) {
+    const team = this.state.teams.find(t => t.id === teamId);
+    if (!team) return false;
+    if (team.isBlocked) return true;
+    if (team.members) {
+      const member = team.members.find(m => m.name === memberName);
+      if (member && member.isBlocked) return true;
+    }
+    return false;
   }
 
   sendRemoteTrigger(action, targetIndex = null) {
