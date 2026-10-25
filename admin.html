@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة تحكم المشرف | Admin Control Center</title>
+  <meta name="description" content="لوحة تحكم آمنة وخاصة بالمشرف لإدارة الفرق، الأكواد، النقاط، الأسئلة والتحكم في اللعبة.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👑</text></svg>">
+  <style>
+    body {
+      background-color: #FAF4F6;
+    }
+    .admin-page-container {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 24px;
+    }
+    .admin-main-card {
+      background: #FFFFFF;
+      border-radius: var(--radius-xl);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+      border: 2px solid rgba(255, 77, 121, 0.2);
+      overflow: hidden;
+    }
+    .admin-page-header {
+      background: linear-gradient(135deg, #2D1B22 0%, #D82655 100%);
+      color: #FFFFFF;
+      padding: 24px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .admin-nav-tabs {
+      display: flex;
+      background: #F4ECF0;
+      padding: 6px;
+      gap: 6px;
+      border-bottom: 2px solid #EADBDF;
+    }
+    .admin-nav-tab {
+      flex: 1;
+      padding: 14px 20px;
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 800;
+      color: #55444B;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .admin-nav-tab.active {
+      background: #FFFFFF;
+      color: var(--primary-pink-dark);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    }
+    .admin-tab-content {
+      padding: 30px;
+      display: none;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .admin-tab-content.active {
+      display: flex;
+    }
+    /* Team Manager Cards */
+    .admin-team-card {
+      background: #FFFFFF;
+      border: 2px solid #EADBDF;
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+      transition: all 0.2s ease;
+    }
+    .admin-team-card:hover {
+      border-color: var(--primary-pink);
+    }
+    .admin-team-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .admin-team-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .admin-team-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .score-action-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .score-btn-add { background: #E8F5E9; color: #2E7D32; }
+    .score-btn-add:hover { background: #C8E6C9; }
+    .score-btn-sub { background: #FFEBEE; color: #C62828; }
+    .score-btn-sub:hover { background: #FFCDD2; }
+    .score-btn-bonus { background: linear-gradient(135deg, #FFD54F, #FFB300); color: #4A3000; }
+    .score-btn-bonus:hover { transform: scale(1.05); }
+
+    /* Members Grid */
+    .admin-members-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #FDF9FB;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .admin-members-table th, .admin-members-table td {
+      padding: 10px 14px;
+      font-size: 13.5px;
+      text-align: start;
+      border-bottom: 1px solid #F0E4E8;
+    }
+    .admin-members-table th {
+      background: #F4E8EE;
+      color: #4A3A40;
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Security Authentication Gate Screen (Shown if not logged in) -->
+  <div id="adminAuthGate" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: #FFFFFF; border-radius: 28px; max-width: 440px; width: 100%; padding: 40px 32px; box-shadow: 0 25px 60px rgba(0,0,0,0.12); text-align: center; border: 3px solid #FFF;">
+      <div style="width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #FF6584, #D82655); display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 16px; box-shadow: 0 8px 20px rgba(255, 77, 121, 0.35);">
+        🔒
+      </div>
+      <h2 style="font-size: 22px; font-weight: 900; color: #38242A; margin-bottom: 6px;">بوابة المشرف الخاصة</h2>
+      <p style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 24px;">
+        هذه الصفحة مخصصة للأدمن فقط لإدارة الفرق والأكواد والمسابقة
+      </p>
+
+      <input type="password" id="gatePinInput" maxlength="6" class="pin-display-input" placeholder="••••" style="margin-bottom: 16px;">
+      <div id="gateErrorMsg" style="color: #D32F2F; font-size: 13px; font-weight: 800; min-height: 20px; margin-bottom: 12px;"></div>
+
+      <div class="pin-keypad-grid" style="margin: 0 auto 20px;">
+        <button class="pin-key-btn gate-key" data-k="1">1</button>
+        <button class="pin-key-btn gate-key" data-k="2">2</button>
+        <button class="pin-key-btn gate-key" data-k="3">3</button>
+        <button class="pin-key-btn gate-key" data-k="4">4</button>
+        <button class="pin-key-btn gate-key" data-k="5">5</button>
+        <button class="pin-key-btn gate-key" data-k="6">6</button>
+        <button class="pin-key-btn gate-key" data-k="7">7</button>
+        <button class="pin-key-btn gate-key" data-k="8">8</button>
+        <button class="pin-key-btn gate-key" data-k="9">9</button>
+        <button class="pin-key-btn gate-key" data-k="c" style="color: #D32F2F; font-size: 16px;">مسح</button>
+        <button class="pin-key-btn gate-key" data-k="0">0</button>
+        <button class="pin-key-btn gate-key" data-k="e" style="background: #E8F5E9; color: #2E7D32; font-size: 16px;">دخول</button>
+      </div>
+
+      <a href="index.html" style="font-size: 13px; font-weight: 800; color: var(--primary-pink); text-decoration: none;">
+        ← العودة لشاشة اللعبة الرئيسية
+      </a>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard Screen (Shown after successful login) -->
+  <div id="adminDashboardApp" class="admin-page-container" style="display: none;">
+    <div class="admin-main-card">
+      
+      <!-- Header -->
+      <div class="admin-page-header">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="font-size: 32px;">👑</div>
+          <div>
+            <h1 style="font-size: 24px; font-weight: 900; line-height: 1.1;">غرفة تحكم المشرف (Admin Command Center)</h1>
+            <p style="font-size: 13px; opacity: 0.85;">تحكم كامل بالفرق، الأكواد، النقاط، البونصات، وبنك الأسئلة</p>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <!-- Cloud Live Sync Status Badge -->
+          <div id="cloudSyncStatusBadge" style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:800; padding:6px 14px; border-radius:999px; border:1px solid rgba(255,255,255,0.4); background:rgba(255,255,255,0.15); color:#FFFFFF;">
+            ○ مزامنة أونلاين عبر الإنترنت
+          </div>
+
+          <a href="index.html" id="viewGameBtn" target="_blank" class="ctrl-btn" style="background: #FFFFFF; color: var(--text-dark);">
+            <span>👁️</span> <span>عرض اللعبة</span>
+          </a>
+          <button class="ctrl-btn" id="logoutBtn" style="background: #FFEBEE; color: #D32F2F; border-color: #FFCDD2;">
+            <span>🚪</span> <span>خروج</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Activity Evaluation Bar (Visible on all tabs when a live challenge is pending!) -->
+      <div id="adminLiveEvaluationWidget" style="display: none; background: linear-gradient(135deg, #FFF9E6 0%, #FFF3CD 100%); border-bottom: 3px solid #FFD152; padding: 18px 36px; box-shadow: 0 4px 15px rgba(255, 193, 7, 0.15);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 44px; height: 44px; border-radius: 50%; background: #FFC107; display: flex; align-items: center; justify-content: center; font-size: 24px; animation: pulse 1.5s infinite;">
+              ⚡
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #E65100; color: #FFF; font-size: 11px; font-weight: 900; padding: 2px 8px; border-radius: 999px;">تحدي تحكيم مباشر الآن</span>
+                <span style="font-size: 17px; font-weight: 900; color: #3E2723;" id="liveEvalActivityTitle">Act It Out</span>
+              </div>
+              <div style="font-size: 13.5px; color: #5D4037; margin-top: 4px;">
+                الفريق المؤدي: <strong id="liveEvalTeamName" style="color: #D82655;">فريق الجهاز المفتوح</strong> | الكلمة / التحدي: <strong id="liveEvalKeyword" style="background: #FFF; padding: 2px 6px; border-radius: 6px; border: 1px solid #FFE082;">-</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Admin Grading Buttons -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button class="score-action-btn" id="btnGrade30" style="background: #2E7D32; color: #FFF; padding: 10px 16px; font-size: 13.5px;">🌟 أداء ممتاز (+30 نقطة)</button>
+            <button class="score-action-btn" id="btnGrade20" style="background: #43A047; color: #FFF; padding: 10px 16px; font-size: 13.5px;">👍 أداء جيد (+20 نقطة)</button>
+            <button class="score-action-btn" id="btnGrade0" style="background: #757575; color: #FFF; padding: 10px 16px; font-size: 13.5px;">😐 لم ينجح (0 نقطة)</button>
+            <button class="score-action-btn" id="btnGradeMinus15" style="background: #C62828; color: #FFF; padding: 10px 16px; font-size: 13.5px;">⚠️ مخالفة / جزاء (-15 نقطة)</button>
+            <button class="score-action-btn" id="btnGradeCancel" style="background: #FFF; color: #37474F; border: 1px solid #B0BEC5; padding: 10px 14px; font-size: 13px;">✕ إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="admin-nav-tabs">
+        <button class="admin-nav-tab active" data-tab="tabTeams">
+          <span>🏆</span> <span>إدارة الفرق وأكواد الدعوة</span>
+        </button>
+        <button class="admin-nav-tab" data-tab="tabQuestions">
+          <span>📚</span> <span>بنك الأسئلة والتحديات</span>
+        </button>
+        <button class="admin-nav-tab" data-tab="tabLive">
+          <span>🎮</span> <span>التحكم المباشر في اللعبة</span>
+        </button>
+      </div>
+
+      <!-- TAB 1: Teams & Invitation Codes -->
+      <div class="admin-tab-content active" id="tabTeams">
+        
+        <!-- Add Team Form -->
+        <div class="admin-card-section">
+          <h4>➕ إنشاء فريق جديد وتخصيص كود الدعوة (أرقام أو حروف)</h4>
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: flex-end;">
+            <div class="editor-form-group" style="margin:0;">
+              <label class="editor-label">اسم الفريق:</label>
+              <input type="text" class="editor-input" id="createTeamName" placeholder="مثال: فريق القصبات الهوائية">
+            </div>
+            <div class="editor-form-group" style="margin:0;">
+              <label class="editor-label">الأيقونة:</label>
+              <select class="editor-select" id="createTeamAvatar">
+                <option value="🐞">🐞 دعسوقة</option>
+                <option value="🫀">🫀 قلب</option>
+                <option value="🪳">🪳 صرصور</option>
+                <option value="🐝">🐝 نحلة</option>
+                <option value="🦗">🦗 جرادة</option>
+                <option value="🐟">🐟 سمكة</option>
+                <option value="🦅">🦅 طائر</option>
+                <option value="⚡">⚡ طاقة</option>
+              </select>
+            </div>
+            <div class="editor-form-group" style="margin:0;">
+              <label class="editor-label">كود الدعوة (أرقام أو حروف):</label>
+              <input type="text" class="editor-input" id="createTeamCode" style="text-transform: uppercase; font-weight: 800; letter-spacing: 1px;" placeholder="مثال: 101 أو BIO5">
+            </div>
+            <button class="spin-btn-huge" id="btnCreateTeam" style="font-size: 15px; padding: 12px 24px;">
+              إنشاء الفريق
+            </button>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+            🔒 نظام السكيورتي: كل فريق محمي بكود الدعوة الخاص به، والحد الأقصى لكل فريق هو <strong>5 أعضاء فقط</strong> ويُقفل تلقائياً عند الاكتمال.
+          </div>
+        </div>
+
+        <!-- Global Team Actions & Search Filter -->
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: #FDF4F6; padding: 14px 18px; border-radius: 12px; border: 1px solid #F0D5DD;">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 900; color: #38242A; margin: 0 0 4px 0;">قائمة الفرق الـ 10 وإحصائيات الأعضاء</h3>
+            <div id="adminTeamCountBadge" style="font-size: 12.5px; color: var(--text-muted); font-weight: 700;">
+              👥 10 فرق متنافسة (مناسبة للأولاد والبنات معاً)
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <input type="text" id="adminTeamSearchInput" class="editor-input" placeholder="🔍 بحث سريع عن فريق أو كود..." style="width: 220px; padding: 7px 12px; font-size: 13px; margin: 0;">
+            <button class="sec-btn" id="btnResetScores" style="padding: 7px 14px; font-size: 12.5px;">🔄 تصفير النقاط للجميع</button>
+            <button class="sec-btn" id="btnResetTeams" style="padding: 7px 14px; font-size: 12.5px; color: #D32F2F;">🔄 استعادة الفرق الـ 10 الأصلية</button>
+          </div>
+        </div>
+
+        <!-- Teams List Container -->
+        <div id="adminTeamsList" style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Dynamically populated -->
+        </div>
+
+      </div>
+
+      <!-- TAB 2: Question Bank Manager -->
+      <div class="admin-tab-content" id="tabQuestions">
+        
+        <!-- Add Custom Question -->
+        <div class="admin-card-section">
+          <h4>➕ إضافة سؤال أو تحدي جديد للعجلة</h4>
+          <div class="editor-form-group">
+            <label class="editor-label">النشاط المستهدف في العجلة:</label>
+            <select class="editor-select" id="qCatSelect">
+              <option value="quickQuiz">💡 Quick Quiz - اختبار سريع</option>
+              <option value="mysteryClue">🔍 Mystery Clue - اللغز الغامض</option>
+              <option value="fixMistake">❌ Fix the Mistake - صحّح الخطأ</option>
+              <option value="actItOut">🎭 Act It Out - مثّلها بدون كلام</option>
+              <option value="explainItFast">⏱️ Explain It Fast - اشرحها بسرعة</option>
+              <option value="luckyBug">⭐ Lucky Bug - حشرة الحظ السعيدة</option>
+            </select>
+          </div>
+
+          <div class="editor-form-group">
+            <label class="editor-label">نص السؤال / التحدي:</label>
+            <textarea class="editor-textarea" id="qTextInput" rows="2" placeholder="اكتب السؤال أو التحدي المستوحى من البرزنتيشن..."></textarea>
+          </div>
+
+          <div class="editor-form-group">
+            <label class="editor-label">الإجابة / الكلمات الممنوعة / الحل:</label>
+            <input type="text" class="editor-input" id="qAnswerInput" placeholder="اكتب الحل الصحيح أو التفسير...">
+          </div>
+
+          <div style="text-align: end;">
+            <button class="spin-btn-huge" id="btnSaveQuestion" style="font-size: 14px; padding: 10px 28px;">
+              حفظ في بنك الأسئلة
+            </button>
+          </div>
+        </div>
+
+        <!-- Browse Questions by Category -->
+        <div class="admin-card-section">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <h4>📚 استعراض وحذف الأسئلة الحالية</h4>
+            <select class="editor-select" id="filterCatSelect" style="width: 240px; padding: 6px 12px; font-size: 13px;">
+              <option value="quickQuiz">💡 Quick Quiz (اختبار سريع)</option>
+              <option value="mysteryClue">🔍 Mystery Clue (اللغز الغامض)</option>
+              <option value="fixMistake">❌ Fix the Mistake (صحّح الخطأ)</option>
+              <option value="actItOut">🎭 Act It Out (مثّلها بدون كلام)</option>
+              <option value="explainItFast">⏱️ Explain It Fast (اشرحها بسرعة)</option>
+              <option value="luckyBug">⭐ Lucky Bug (حشرة الحظ)</option>
+            </select>
+          </div>
+
+          <div id="adminQuestionsList" style="max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TAB 3: Live Game Control -->
+      <div class="admin-tab-content" id="tabLive">
+        
+        <div class="admin-card-section">
+          <h4>🎮 التحكم بالدوران عن بُعد (Remote Spin Trigger)</h4>
+          <p style="font-size: 13.5px; color: var(--text-muted); margin-bottom: 14px;">
+            يمكنك إطلاق الدوران أو إجبار العجلة على التوقف على قسم محدد مباشرة من هذه اللوحة:
+          </p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;">
+            <button class="spin-btn-huge" id="btnRemoteSpin" style="font-size: 15px; padding: 12px 28px;">
+              🌀 تدوير العجلة الآن في شاشة العرض
+            </button>
+            <button class="sec-btn" id="btnRemoteNextTurn" style="padding: 12px 20px; font-weight: 800;">
+              ⏩ تحويل الدور للفريق التالي
+            </button>
+          </div>
+
+          <div style="font-size: 13px; font-weight: 800; margin-bottom: 8px;">توجيه العجلة إجبارياً لنشاط محدد:</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="sec-btn" onclick="triggerRemoteForce(0)">💡 Quick Quiz</button>
+            <button class="sec-btn" onclick="triggerRemoteForce(1)">🔍 Mystery Clue</button>
+            <button class="sec-btn" onclick="triggerRemoteForce(2)">❌ Fix Mistake</button>
+            <button class="sec-btn" onclick="triggerRemoteForce(3)">🎭 Act It Out</button>
+            <button class="sec-btn" onclick="triggerRemoteForce(4)">⏱️ Explain Fast</button>
+            <button class="sec-btn" onclick="triggerRemoteForce(5)">⭐ Lucky Bug</button>
+          </div>
+        </div>
+
+        <div class="admin-card-section">
+          <h4>🔑 أمان المشرف - تغيير رمز PIN</h4>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="password" id="newPinInput" class="editor-input" maxlength="6" style="width: 180px; letter-spacing: 4px; font-weight: 800;" placeholder="رمز PIN جديد">
+            <button class="sec-btn" id="btnUpdatePin" style="background: var(--primary-pink); color: #FFF; font-weight: 800;">
+              حفظ الرمز السري الجديد
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts (With Real-Time Global Internet WebSockets) -->
+  <script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script>
+  <script src="state.js"></script>
+  <script src="questions.js"></script>
+  <script src="audio.js"></script>
+  <script>
+    // Admin Page Controller
+    document.addEventListener('DOMContentLoaded', () => {
+      const authGate = document.getElementById('adminAuthGate');
+      const dashboard = document.getElementById('adminDashboardApp');
+      const gatePinInput = document.getElementById('gatePinInput');
+      const gateErrorMsg = document.getElementById('gateErrorMsg');
+      const logoutBtn = document.getElementById('logoutBtn');
+
+      let enteredPin = '';
+
+      // Check Session Auth
+      if (sessionStorage.getItem('admin_logged_in') === 'true') {
+        showDashboard();
+      }
+
+      // Sync Room Param to View Game Button
+      const viewGameBtn = document.getElementById('viewGameBtn');
+      if (viewGameBtn && window.gameStateManager && window.gameStateManager.roomId) {
+        viewGameBtn.href = `index.html?room=${encodeURIComponent(window.gameStateManager.roomId)}`;
+      }
+
+      // PIN Gate Logic
+      document.querySelectorAll('.gate-key').forEach(btn => {
+        btn.addEventListener('click', () => {
+          soundController.playClick();
+          const k = btn.getAttribute('data-k');
+          if (k === 'c') {
+            enteredPin = '';
+            gatePinInput.value = '';
+            gateErrorMsg.textContent = '';
+          } else if (k === 'e') {
+            checkGatePin();
+          } else {
+            if (enteredPin.length < 6) {
+              enteredPin += k;
+              gatePinInput.value = '•'.repeat(enteredPin.length);
+              if (enteredPin.length === 4) {
+                setTimeout(checkGatePin, 150);
+              }
+            }
+          }
+        });
+      });
+
+      function checkGatePin() {
+        if (window.gameStateManager.verifyAdminPin(enteredPin)) {
+          sessionStorage.setItem('admin_logged_in', 'true');
+          soundController.playSuccess();
+          showDashboard();
+        } else {
+          soundController.playBuzzer();
+          gateErrorMsg.textContent = '❌ رمز سري خاطئ! يرجى المحاولة مجدداً.';
+          enteredPin = '';
+          gatePinInput.value = '';
+        }
+      }
+
+      function showDashboard() {
+        authGate.style.display = 'none';
+        dashboard.style.display = 'block';
+        renderAdminTeams();
+        renderAdminQuestions();
+      }
+
+      logoutBtn.addEventListener('click', () => {
+        sessionStorage.removeItem('admin_logged_in');
+        soundController.playClick();
+        window.location.reload();
+      });
+
+      // Navigation Tabs
+      document.querySelectorAll('.admin-nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          soundController.playClick();
+          document.querySelectorAll('.admin-nav-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+
+          tab.classList.add('active');
+          const pane = document.getElementById(tab.getAttribute('data-tab'));
+          if (pane) pane.classList.add('active');
+        });
+      });
+
+      // =====================================================================
+      // Team Management & Member Stats (With Search & Single Team Reset)
+      // =====================================================================
+      function renderAdminTeams() {
+        const teamsList = document.getElementById('adminTeamsList');
+        const countBadge = document.getElementById('adminTeamCountBadge');
+        const searchInput = document.getElementById('adminTeamSearchInput');
+        const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+        const allTeams = window.gameStateManager.getTeams();
+        let totalMembers = 0;
+        allTeams.forEach(t => {
+          totalMembers += (t.members ? t.members.length : 0);
+        });
+
+        if (countBadge) {
+          countBadge.innerHTML = `👥 <strong>${allTeams.length} فرق متنافسة</strong> | 🎓 إجمالي الطلاب المنضمين: <strong>${totalMembers} طالب</strong>`;
+        }
+
+        const teams = allTeams.filter(t => {
+          if (!query) return true;
+          return t.name.toLowerCase().includes(query) || 
+                 String(t.code).toLowerCase().includes(query) ||
+                 (t.members && t.members.some(m => m.name.toLowerCase().includes(query)));
+        });
+
+        teamsList.innerHTML = '';
+
+        if (teams.length === 0) {
+          teamsList.innerHTML = `
+            <div style="text-align: center; padding: 36px; color: var(--text-muted); background: #FAF5F7; border-radius: 12px; border: 2px dashed #E8D4DC; font-weight: 700;">
+              🔍 لا توجد نتائج مطابقة لبحثك: "<strong>${query}</strong>"
+            </div>
+          `;
+          return;
+        }
+
+        teams.forEach((team, idx) => {
+          const card = document.createElement('div');
+          card.className = 'admin-team-card';
+
+          const memCount = team.members ? team.members.length : 0;
+          const isFull = memCount >= (team.maxMembers || 5);
+
+          card.innerHTML = `
+            <div class="admin-team-top">
+              <div class="admin-team-title-wrap">
+                <span style="font-size: 32px;">${team.avatar}</span>
+                <div>
+                  <div style="font-size: 18px; font-weight: 900; color: #38242A;">${team.name}</div>
+                  <div style="font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+                    <span>كود الدعوة:</span>
+                    <strong style="color:var(--primary-pink); font-family: monospace; font-size: 15px;">${team.code}</strong>
+                    <button class="copy-code-btn" data-code="${team.code}">📋 نسخ الكود</button>
+                    <span class="slot-capacity ${isFull ? 'full' : ''}">${memCount}/${team.maxMembers || 5} أعضاء</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Score Actions Row -->
+              <div class="admin-team-actions-row">
+                <span style="font-size: 24px; font-weight: 900; color: ${team.score < 0 ? '#D32F2F' : 'var(--primary-pink-dark)'}; margin-left: 8px;">
+                  ${team.score} نقطة ${team.score < 0 ? '⚠️ (بالسالب)' : ''}
+                </span>
+                <button class="score-action-btn score-btn-add" data-action="score" data-tid="${team.id}" data-val="10">+10</button>
+                <button class="score-action-btn score-btn-add" data-action="score" data-tid="${team.id}" data-val="20">+20</button>
+                <button class="score-action-btn score-btn-add" data-action="score" data-tid="${team.id}" data-val="50">+50</button>
+                <button class="score-action-btn score-btn-sub" data-action="score" data-tid="${team.id}" data-val="-10">-10</button>
+                <button class="score-action-btn score-btn-bonus" data-action="bonus" data-tid="${team.id}" data-val="100">🎁 +100 بونص</button>
+                <button class="score-action-btn" data-action="resetTeam" data-tid="${team.id}" style="background: #FFF3E0; color: #E65100; border: 1.5px solid #FFCC80; font-weight: 800;" title="تصفير نقاط هذا الفريق وإحصائيات أعضائه">🔄 تصفير الفريق</button>
+                <button class="score-action-btn score-btn-sub" data-action="delete" data-tid="${team.id}">حذف ✕</button>
+              </div>
+            </div>
+
+            <!-- Members Table with Individual Points & Questions Solved -->
+            <div>
+              <div style="font-size: 13px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px;">
+                👥 تفاصيل الأعضاء المنضمين وإحصائيات كل عضو:
+              </div>
+              <table class="admin-members-table">
+                <thead>
+                  <tr>
+                    <th>اسم العضو</th>
+                    <th>الصفة</th>
+                    <th>النقاط الفردية</th>
+                    <th>الأسئلة المحلولة</th>
+                    <th>إجراءات العضو</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${team.members && team.members.length > 0 ? team.members.map(m => `
+                    <tr>
+                      <td style="font-weight: 800; color: #2C2623;">👤 ${m.name}</td>
+                      <td><span style="background:#EBF8FF; color:#2B6CB0; padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:700;">${m.role || 'عضو'}</span></td>
+                      <td style="font-weight: 900; color: ${(m.points || 0) < 0 ? '#D32F2F' : '#D82655'};">⭐ ${m.points || 0} نقطة ${(m.points || 0) < 0 ? '⚠️' : ''}</td>
+                      <td style="font-weight: 800; color: #2E7D32;">🎯 ${m.questionsSolved || 0} سؤال محلول</td>
+                      <td>
+                        <button class="score-action-btn score-btn-add" data-action="memScore" data-tid="${team.id}" data-mname="${m.name}" data-val="10">+10 نقاط</button>
+                        <button class="score-action-btn score-btn-sub" data-action="memRemove" data-tid="${team.id}" data-mname="${m.name}">إزالة ✕</button>
+                      </td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colspan="5" style="text-align: center; color: #9E9E9E; padding: 14px;">
+                        لم ينضم أي عضو لهذا الفريق بعد. أعطِ الطلاب كود الدعوة (<strong>${team.code}</strong>).
+                      </td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          `;
+
+          teamsList.appendChild(card);
+        });
+
+        // Wire Copy Code
+        teamsList.querySelectorAll('.copy-code-btn').forEach(b => {
+          b.addEventListener('click', () => {
+            const code = b.getAttribute('data-code');
+            navigator.clipboard.writeText(code).then(() => {
+              soundController.playClick();
+              b.textContent = '✓ تم النسخ!';
+              setTimeout(() => { b.textContent = '📋 نسخ الكود'; }, 1500);
+            });
+          });
+        });
+
+        // Wire Actions
+        teamsList.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const act = btn.getAttribute('data-action');
+            const tid = btn.getAttribute('data-tid');
+            const val = parseInt(btn.getAttribute('data-val'), 10);
+            const mname = btn.getAttribute('data-mname');
+
+            if (act === 'score') {
+              window.gameStateManager.updateTeamScore(tid, val);
+              soundController.playSuccess();
+              renderAdminTeams();
+            } else if (act === 'bonus') {
+              window.gameStateManager.giveTeamBonus(tid, val);
+              soundController.playMagicSparkle();
+              renderAdminTeams();
+            } else if (act === 'resetTeam') {
+              const currentTeam = window.gameStateManager.getTeams().find(t => t.id === tid);
+              const teamName = currentTeam ? currentTeam.name : 'هذا الفريق';
+              if (confirm(`هل أنت متأكد من تصفير نقاط "${teamName}" وإحصائيات جميع أعضائه إلى 0 فقط؟`)) {
+                window.gameStateManager.resetTeamScore(tid);
+                soundController.playSuccess();
+                renderAdminTeams();
+              }
+            } else if (act === 'delete') {
+              if (confirm('هل أنت متأكد من حذف هذا الفريق؟')) {
+                window.gameStateManager.deleteTeam(tid);
+                soundController.playClick();
+                renderAdminTeams();
+              }
+            } else if (act === 'memScore') {
+              window.gameStateManager.updateMemberPoints(tid, mname, val, 1);
+              soundController.playSuccess();
+              renderAdminTeams();
+            } else if (act === 'memRemove') {
+              if (confirm(`إزالة العضو ${mname} من الفريق؟`)) {
+                window.gameStateManager.removeMember(tid, mname);
+                soundController.playClick();
+                renderAdminTeams();
+              }
+            }
+          });
+        });
+      }
+
+      // Wire search filter
+      const adminSearchInput = document.getElementById('adminTeamSearchInput');
+      if (adminSearchInput) {
+        adminSearchInput.addEventListener('input', () => {
+          renderAdminTeams();
+        });
+      }
+
+      // Create Team
+      document.getElementById('btnCreateTeam').addEventListener('click', () => {
+        const name = document.getElementById('createTeamName').value.trim();
+        const avatar = document.getElementById('createTeamAvatar').value;
+        let code = document.getElementById('createTeamCode').value.trim().toUpperCase();
+
+        if (!name) {
+          alert('يرجى إدخال اسم الفريق أولاً!');
+          return;
+        }
+
+        if (!code) {
+          code = String(Math.floor(100 + Math.random() * 900));
+        }
+
+        window.gameStateManager.addTeam(name, code, avatar);
+        soundController.playSuccess();
+
+        document.getElementById('createTeamName').value = '';
+        document.getElementById('createTeamCode').value = '';
+        renderAdminTeams();
+      });
+
+      // Reset Scores & Reset Teams
+      document.getElementById('btnResetScores').addEventListener('click', () => {
+        if (confirm('تصفير نقاط جميع الفرق واللاعبين؟')) {
+          window.gameStateManager.resetScores();
+          soundController.playSuccess();
+          renderAdminTeams();
+        }
+      });
+
+      document.getElementById('btnResetTeams').addEventListener('click', () => {
+        if (confirm('استعادة الفرق الافتراضية الأصلية؟')) {
+          window.gameStateManager.resetAllTeams();
+          soundController.playSuccess();
+          renderAdminTeams();
+        }
+      });
+
+      // Question Bank
+      function renderAdminQuestions() {
+        const cat = document.getElementById('filterCatSelect').value;
+        const list = document.getElementById('adminQuestionsList');
+        const items = window.activityManager.getAllItems(cat);
+        list.innerHTML = '';
+
+        if (!items || items.length === 0) {
+          list.innerHTML = '<div style="text-align:center; padding:16px; color:#9E9E9E;">لا توجد أسئلة في هذا القسم</div>';
+          return;
+        }
+
+        items.forEach(it => {
+          const row = document.createElement('div');
+          row.className = 'admin-question-item';
+
+          let text = '';
+          if (it.question) text = it.question.ar || it.question.en;
+          else if (it.sentence) text = it.sentence.ar || it.sentence.en;
+          else if (it.prompt) text = it.prompt.ar || it.prompt.en;
+          else if (it.targetWord) text = 'Taboo: ' + (it.targetWord.ar || it.targetWord.en);
+          else if (it.title) text = it.title.ar || it.title.en;
+
+          row.innerHTML = `
+            <span class="admin-question-text">${text}</span>
+            <button class="admin-delete-item-btn" data-cat="${cat}" data-id="${it.id}">حذف ✕</button>
+          `;
+
+          row.querySelector('.admin-delete-item-btn').addEventListener('click', () => {
+            if (confirm('حذف هذا السؤال؟')) {
+              window.activityManager.deleteItem(cat, it.id);
+              renderAdminQuestions();
+              soundController.playClick();
+            }
+          });
+
+          list.appendChild(row);
+        });
+      }
+
+      document.getElementById('filterCatSelect').addEventListener('change', renderAdminQuestions);
+
+      document.getElementById('btnSaveQuestion').addEventListener('click', () => {
+        const cat = document.getElementById('qCatSelect').value;
+        const qText = document.getElementById('qTextInput').value.trim();
+        const aText = document.getElementById('qAnswerInput').value.trim();
+
+        if (!qText) {
+          alert('يرجى كتابة نص السؤال أو التحدي!');
+          return;
+        }
+
+        let newItem = null;
+        if (cat === 'quickQuiz') {
+          newItem = {
+            id: 'custom_' + Date.now(),
+            question: { en: qText, ar: qText },
+            options: {
+              en: [aText || 'Correct Option', 'Option B', 'Option C', 'Option D'],
+              ar: [aText || 'الإجابة الصحيحة', 'خيار ب', 'خيار ج', 'خيار د']
+            },
+            correctIndex: 0,
+            explanation: { en: aText, ar: aText }
+          };
+        } else if (cat === 'mysteryClue') {
+          newItem = {
+            id: 'custom_' + Date.now(),
+            title: { en: 'Custom Mystery', ar: 'لغز بيولوجي مخصص' },
+            clues: {
+              en: [qText, 'Additional Clue', 'Final Clue'],
+              ar: [qText, 'تلميح إضافي', 'التلميح الأخير']
+            },
+            answer: { en: aText, ar: aText },
+            funFact: { en: '', ar: '' }
+          };
+        } else if (cat === 'fixMistake') {
+          newItem = {
+            id: 'custom_' + Date.now(),
+            sentence: { en: qText, ar: qText },
+            hint: { en: '', ar: '' },
+            correction: { en: aText, ar: aText }
+          };
+        } else if (cat === 'actItOut') {
+          newItem = {
+            id: 'custom_' + Date.now(),
+            prompt: { en: qText, ar: qText },
+            secretKeyword: { en: aText || 'Secret Act', ar: aText || 'تحدي التمثيل' },
+            timeLimitSeconds: 45
+          };
+        } else if (cat === 'explainItFast') {
+          newItem = {
+            id: 'custom_' + Date.now(),
+            targetWord: { en: qText, ar: qText },
+            forbiddenWords: {
+              en: aText.split(',').map(s => s.trim()).filter(Boolean),
+              ar: aText.split(',').map(s => s.trim()).filter(Boolean)
+            },
+            timeLimitSeconds: 30
+          };
+        } else {
+          newItem = {
+            id: 'custom_' + Date.now(),
+            title: { en: qText, ar: qText },
+            reward: { en: aText, ar: aText },
+            effect: 'custom',
+            detail: { en: '', ar: '' }
+          };
+        }
+
+        window.activityManager.addItem(cat, newItem);
+        soundController.playSuccess();
+        document.getElementById('qTextInput').value = '';
+        document.getElementById('qAnswerInput').value = '';
+        document.getElementById('filterCatSelect').value = cat;
+        renderAdminQuestions();
+        alert('تمت إضافة السؤال بنجاح إلى بنك الأسئلة!');
+      });
+
+      // Remote Game Controls
+      document.getElementById('btnRemoteSpin').addEventListener('click', () => {
+        window.gameStateManager.sendRemoteTrigger('spin');
+        soundController.playClick();
+        alert('تم إرسال إشارة تدوير العجلة لشاشة اللعبة!');
+      });
+
+      document.getElementById('btnRemoteNextTurn').addEventListener('click', () => {
+        window.gameStateManager.nextTurn();
+        soundController.playClick();
+        renderAdminTeams();
+      });
+
+      window.triggerRemoteForce = function(index) {
+        window.gameStateManager.sendRemoteTrigger('force_spin', index);
+        soundController.playClick();
+        alert('تم توجيه العجلة للتوقف على النشاط رقم: ' + (index + 1));
+      };
+
+      // Update PIN
+      document.getElementById('btnUpdatePin').addEventListener('click', () => {
+        const newPin = document.getElementById('newPinInput').value.trim();
+        if (newPin.length < 4) {
+          alert('الرمز السري يجب أن يتكون من 4 أرقام أو حروف على الأقل!');
+          return;
+        }
+        window.gameStateManager.setAdminPin(newPin);
+        soundController.playSuccess();
+        document.getElementById('newPinInput').value = '';
+        alert('تم تحديث الرمز السري بنجاح إلى: ' + newPin);
+      });
+
+      // =====================================================================
+      // Live Challenge Evaluation Controls (Admin Grading for Act & Explain)
+      // =====================================================================
+      const liveEvalWidget = document.getElementById('adminLiveEvaluationWidget');
+      const liveEvalActivityTitle = document.getElementById('liveEvalActivityTitle');
+      const liveEvalTeamName = document.getElementById('liveEvalTeamName');
+      const liveEvalKeyword = document.getElementById('liveEvalKeyword');
+
+      let lastSeenLiveTimestamp = 0;
+
+      function updateLiveEvalWidget(state) {
+        if (!state) state = window.gameStateManager.getState();
+        if (state.liveEvaluation && state.liveEvaluation.status === 'pending') {
+          liveEvalWidget.style.display = 'block';
+          liveEvalActivityTitle.textContent = state.liveEvaluation.activityTitle || 'تحدي مباشر';
+          liveEvalTeamName.textContent = state.liveEvaluation.teamName || 'الفريق النشط';
+          liveEvalKeyword.textContent = state.liveEvaluation.promptKeyword || '-';
+
+          if (state.liveEvaluation.timestamp > lastSeenLiveTimestamp) {
+            lastSeenLiveTimestamp = state.liveEvaluation.timestamp;
+            soundController.playMagicSparkle();
+          }
+        } else {
+          liveEvalWidget.style.display = 'none';
+        }
+      }
+
+      document.getElementById('btnGrade30').addEventListener('click', () => {
+        window.gameStateManager.gradeLiveChallenge(30);
+        soundController.playSuccess();
+        renderAdminTeams();
+        updateLiveEvalWidget(window.gameStateManager.getState());
+      });
+
+      document.getElementById('btnGrade20').addEventListener('click', () => {
+        window.gameStateManager.gradeLiveChallenge(20);
+        soundController.playSuccess();
+        renderAdminTeams();
+        updateLiveEvalWidget(window.gameStateManager.getState());
+      });
+
+      document.getElementById('btnGrade0').addEventListener('click', () => {
+        window.gameStateManager.gradeLiveChallenge(0);
+        soundController.playClick();
+        renderAdminTeams();
+        updateLiveEvalWidget(window.gameStateManager.getState());
+      });
+
+      document.getElementById('btnGradeMinus15').addEventListener('click', () => {
+        window.gameStateManager.gradeLiveChallenge(-15);
+        soundController.playBuzzer();
+        renderAdminTeams();
+        updateLiveEvalWidget(window.gameStateManager.getState());
+      });
+
+      document.getElementById('btnGradeCancel').addEventListener('click', () => {
+        window.gameStateManager.cancelLiveChallenge();
+        soundController.playClick();
+        updateLiveEvalWidget(window.gameStateManager.getState());
+      });
+
+      // Subscribe to real-time state changes
+      window.gameStateManager.subscribe((state) => {
+        renderAdminTeams();
+        updateLiveEvalWidget(state);
+      });
+
+      // Initial check
+      updateLiveEvalWidget(window.gameStateManager.getState());
+    });
+  </script>
+</body>
+</html>
