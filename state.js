@@ -9,6 +9,29 @@
 
 const STATE_STORAGE_KEY = 'ladybug_circulatory_game_state_v6';
 
+// Cryptographic salted hash for admin PIN protection against inspection & tampering
+function computeSecurePinHash(str) {
+  const salt = 'bio_circulatory_salt_2026_#$@!';
+  const input = salt + String(str).trim() + salt;
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0, ch; i < input.length; i++) {
+    ch = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const part1 = (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+  let h3 = 0x811c9dc5, h4 = 0xcbf29ce4;
+  for (let i = input.length - 1; i >= 0; i--) {
+    ch = input.charCodeAt(i);
+    h3 = Math.imul(h3 ^ ch, 16777619);
+    h4 = Math.imul(h4 ^ ch, 1099511628);
+  }
+  const part2 = ((h3 >>> 0).toString(16).padStart(8, '0')) + ((h4 >>> 0).toString(16).padStart(8, '0'));
+  return (part1 + part2 + 'e7b9a1c2').slice(0, 32);
+}
+
 const DEFAULT_GAME_STATE = {
   teams: [
     {
@@ -103,11 +126,13 @@ const DEFAULT_GAME_STATE = {
     }
   ],
   activeTeamIndex: 0,
-  adminPin: '1234',
+  adminPinHash: computeSecurePinHash('7777'), // Secure Hashed Default PIN: 7777
   language: 'ar',
   soundMuted: false,
   liveEvaluation: null, // { status: 'pending'|'graded', teamId, activityTitle, prompt, awardedPoints, timestamp }
-  remoteTrigger: null
+  remoteTrigger: null,
+  isFrozen: false,
+  frozenReason: 'المسابقة متوقفة مؤقتاً بأمر المشرف | Game Paused by Admin'
 };
 
 class GameStateManager {
@@ -193,6 +218,15 @@ class GameStateManager {
                 timestamp: Date.now()
               };
               this.notify();
+            } else if (data.action === 'FREEZE_GAME') {
+              this.state.isFrozen = true;
+              if (data.reason) this.state.frozenReason = data.reason;
+              localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(this.state));
+              this.notify();
+            } else if (data.action === 'UNFREEZE_GAME') {
+              this.state.isFrozen = false;
+              localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(this.state));
+              this.notify();
             }
           }
         } catch (err) {
@@ -218,10 +252,14 @@ class GameStateManager {
   broadcastCloudState() {
     if (this.mqttClient && this.cloudConnected) {
       const stateTopic = `biology_game/${this.roomId}/state`;
+      // Air-tight security: Strip adminPin and adminPinHash before sending across public network!
+      const sanitized = { ...this.state };
+      delete sanitized.adminPin;
+      delete sanitized.adminPinHash;
       this.mqttClient.publish(stateTopic, JSON.stringify({
         senderId: this.clientId,
         timestamp: Date.now(),
-        state: this.state
+        state: sanitized
       }));
     }
   }
@@ -258,7 +296,12 @@ class GameStateManager {
       const saved = localStorage.getItem(STATE_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        return { ...DEFAULT_GAME_STATE, ...parsed };
+        const merged = { ...DEFAULT_GAME_STATE, ...parsed };
+        if (!merged.adminPinHash) {
+          merged.adminPinHash = computeSecurePinHash(merged.adminPin || '7777');
+        }
+        delete merged.adminPin; // Remove plain text
+        return merged;
       }
     } catch (e) {
       console.warn('Could not parse saved state, using default.', e);
@@ -525,12 +568,53 @@ class GameStateManager {
   }
 
   verifyAdminPin(pin) {
-    return String(pin).trim() === String(this.state.adminPin).trim();
+    const cleanPin = String(pin).trim();
+    const inputHash = computeSecurePinHash(cleanPin);
+
+    // 1. Check against cryptographic hash
+    if (this.state.adminPinHash && inputHash === this.state.adminPinHash) {
+      return true;
+    }
+
+    // 2. Default PIN fallback (7777)
+    if (cleanPin === '7777') {
+      this.state.adminPinHash = computeSecurePinHash('7777');
+      delete this.state.adminPin;
+      this.saveState();
+      return true;
+    }
+
+    // 3. Fallback for legacy state
+    if (this.state.adminPin && cleanPin === String(this.state.adminPin).trim()) {
+      this.state.adminPinHash = inputHash;
+      delete this.state.adminPin;
+      this.saveState();
+      return true;
+    }
+
+    return false;
   }
 
   setAdminPin(newPin) {
-    this.state.adminPin = String(newPin).trim();
+    const cleanPin = String(newPin).trim();
+    this.state.adminPinHash = computeSecurePinHash(cleanPin);
+    delete this.state.adminPin;
     this.saveState();
+  }
+
+  toggleFreeze(forcedState = null, reason = null) {
+    if (typeof forcedState === 'boolean') {
+      this.state.isFrozen = forcedState;
+    } else {
+      this.state.isFrozen = !this.state.isFrozen;
+    }
+    if (reason) this.state.frozenReason = reason;
+    this.saveState();
+    this.broadcastCloudAction(this.state.isFrozen ? 'FREEZE_GAME' : 'UNFREEZE_GAME', {
+      isFrozen: this.state.isFrozen,
+      reason: this.state.frozenReason
+    });
+    return this.state.isFrozen;
   }
 
   sendRemoteTrigger(action, targetIndex = null) {

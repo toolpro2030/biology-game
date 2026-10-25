@@ -84,7 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
       qrModalTitle: 'امسح الباركود للانضمام للمسابقة',
       qrModalSub: 'شارك الرابط مع الطلاب أو اعرضه على شاشة القاعة',
       qrScanHint: 'امسح الرمز بكاميرا هاتفك أو افتح الرابط المباشر أدناه:',
-      copyLinkBtn: 'نسخ الرابط 📋'
+      copyLinkBtn: 'نسخ الرابط 📋',
+      gameFrozenTitle: 'المسابقة متوقفة مؤقتاً بأمر المشرف',
+      gameFrozenSub: 'قام الأستاذ المشرف بإيقاف وتجميد اللعبة مؤقتاً لمراجعة النقاط أو تقديم شرح تعليمي. يرجى الانتباه لشاشة العرض، وسيتم استئناف التحدي فوراً.',
+      waitingAdminResume: 'في انتظار إشارة الاستئناف من المشرف...'
     },
     en: {
       appTitle: 'Circulatory Systems in Animals & Insects',
@@ -111,7 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
       qrModalTitle: 'Scan QR to Join Contest',
       qrModalSub: 'Share link with students or display on screen',
       qrScanHint: 'Scan code with phone camera or use direct link below:',
-      copyLinkBtn: 'Copy Link 📋'
+      copyLinkBtn: 'Copy Link 📋',
+      gameFrozenTitle: 'Game Paused by Admin',
+      gameFrozenSub: 'The teacher/admin has temporarily paused the competition. Please look at the presenter screen, challenge will resume shortly.',
+      waitingAdminResume: 'Waiting for admin to resume...'
     }
   };
 
@@ -442,8 +448,31 @@ document.addEventListener('DOMContentLoaded', () => {
   // Live State & Remote Triggers Listener from admin.html
   // =========================================================================
 
+  function updateFreezeState(isFrozen, reason = null) {
+    const overlay = document.getElementById('gameFrozenOverlay');
+    const spinBtn = document.getElementById('spinBtn');
+    if (overlay) {
+      if (isFrozen) {
+        overlay.style.display = 'flex';
+        requestAnimationFrame(() => overlay.classList.add('active'));
+        if (spinBtn) spinBtn.disabled = true;
+      } else {
+        overlay.classList.remove('active');
+        setTimeout(() => {
+          if (!overlay.classList.contains('active')) {
+            overlay.style.display = 'none';
+          }
+        }, 300);
+        if (spinBtn && !spinner.isSpinning) spinBtn.disabled = false;
+      }
+    }
+  }
+
   function checkLiveUpdates(state) {
-    // 1. Remote Spin Triggers
+    // 1. Game Freeze State
+    updateFreezeState(state.isFrozen, state.frozenReason);
+
+    // 2. Remote Spin Triggers
     if (state.remoteTrigger && state.remoteTrigger.timestamp > lastProcessedTrigger) {
       lastProcessedTrigger = state.remoteTrigger.timestamp;
       const { action, targetIndex } = state.remoteTrigger;
@@ -457,7 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 2. Remote Admin Evaluation for Act It Out or Explain It Fast!
+    // 3. Remote Admin Evaluation for Act It Out or Explain It Fast!
     if (state.liveEvaluation && state.liveEvaluation.status === 'graded' && state.liveEvaluation.timestamp > lastProcessedEvalTimestamp) {
       lastProcessedEvalTimestamp = state.liveEvaluation.timestamp;
       const pts = state.liveEvaluation.awardedPoints;
@@ -487,6 +516,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderScoreboard();
     checkLiveUpdates(newState);
   });
+
+  // Initial check on load
+  updateFreezeState(window.gameStateManager.getState().isFrozen);
 
   // Recent Spins Log
   function recordRecentSpin(segment) {

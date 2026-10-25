@@ -191,7 +191,12 @@
           </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <!-- Game Freeze Button -->
+          <button class="ctrl-btn" id="btnToggleFreezeHeader" style="background: #E0F2FE; color: #0284C7; border: 1.5px solid #BAE6FD; font-weight: 800;">
+            <span id="freezeBtnIcon">❄️</span> <span id="freezeBtnText">تجميد اللعبة (Freeze)</span>
+          </button>
+
           <!-- Cloud Live Sync Status Badge -->
           <div id="cloudSyncStatusBadge" style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:800; padding:6px 14px; border-radius:999px; border:1px solid rgba(255,255,255,0.4); background:rgba(255,255,255,0.15); color:#FFFFFF;">
             ○ مزامنة أونلاين عبر الإنترنت
@@ -392,6 +397,21 @@
           </div>
         </div>
 
+        <!-- Game Freeze Control Section -->
+        <div class="admin-card-section" style="background: #F0F9FF; border: 2px solid #BAE6FD;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+            <div>
+              <h4 style="color: #0369A1; margin: 0 0 6px 0;">❄️ تجميد اللعبة وإيقاف تفاعل الطلاب (Game Freeze)</h4>
+              <p style="font-size: 13px; color: #0284C7; margin: 0;">
+                عند تفعيل التجميد، يظهر فوراً قفل كامل وشاشة توقف على هواتف جميع الطلاب وشاشة العرض تمنعهم من الدوران ريثما تنتهي من الشرح.
+              </p>
+            </div>
+            <button class="spin-btn-huge" id="btnToggleFreezeTab" style="font-size: 14.5px; padding: 12px 26px; background: linear-gradient(135deg, #0284C7, #0369A1);">
+              ❄️ تجميد اللعبة الآن
+            </button>
+          </div>
+        </div>
+
         <div class="admin-card-section">
           <h4>🔑 أمان المشرف - تغيير رمز PIN</h4>
           <div style="display: flex; gap: 10px; align-items: center;">
@@ -434,9 +454,63 @@
         viewGameBtn.href = `index.html?room=${encodeURIComponent(window.gameStateManager.roomId)}`;
       }
 
+      // Anti-Brute-Force & Lockout Protection System
+      const FAILED_ATTEMPTS_KEY = 'bio_admin_failed_attempts';
+      const LOCKOUT_UNTIL_KEY = 'bio_admin_lockout_until';
+      let lockoutInterval = null;
+
+      function checkLockoutStatus() {
+        const lockoutUntil = parseInt(sessionStorage.getItem(LOCKOUT_UNTIL_KEY) || '0', 10);
+        const now = Date.now();
+        if (lockoutUntil > now) {
+          const remainingSec = Math.ceil((lockoutUntil - now) / 1000);
+          setKeypadLocked(true, remainingSec);
+          return true;
+        } else {
+          setKeypadLocked(false);
+          return false;
+        }
+      }
+
+      function setKeypadLocked(locked, remainingSec = 0) {
+        document.querySelectorAll('.gate-key').forEach(btn => {
+          btn.disabled = locked;
+          btn.style.opacity = locked ? '0.35' : '1';
+          btn.style.pointerEvents = locked ? 'none' : 'auto';
+        });
+        if (locked) {
+          gateErrorMsg.style.color = '#D32F2F';
+          gateErrorMsg.innerHTML = `⛔ <strong>تم قفل الدخول مؤقتاً لحماية النظام!</strong><br>انتظر <span style="font-size:16px; font-weight:900;">${remainingSec}</span> ثانية...`;
+          if (!lockoutInterval) {
+            lockoutInterval = setInterval(() => {
+              const until = parseInt(sessionStorage.getItem(LOCKOUT_UNTIL_KEY) || '0', 10);
+              const left = Math.ceil((until - Date.now()) / 1000);
+              if (left <= 0) {
+                clearInterval(lockoutInterval);
+                lockoutInterval = null;
+                sessionStorage.removeItem(LOCKOUT_UNTIL_KEY);
+                setKeypadLocked(false);
+                gateErrorMsg.textContent = 'يمكنك الآن المحاولة مجدداً.';
+                gateErrorMsg.style.color = '#2E7D32';
+              } else {
+                gateErrorMsg.innerHTML = `⛔ <strong>تم قفل الدخول مؤقتاً لحماية النظام!</strong><br>انتظر <span style="font-size:16px; font-weight:900;">${left}</span> ثانية...`;
+              }
+            }, 1000);
+          }
+        } else {
+          if (lockoutInterval) {
+            clearInterval(lockoutInterval);
+            lockoutInterval = null;
+          }
+        }
+      }
+
+      checkLockoutStatus();
+
       // PIN Gate Logic
       document.querySelectorAll('.gate-key').forEach(btn => {
         btn.addEventListener('click', () => {
+          if (checkLockoutStatus()) return;
           soundController.playClick();
           const k = btn.getAttribute('data-k');
           if (k === 'c') {
@@ -457,16 +531,57 @@
         });
       });
 
+      // Physical Keyboard Input Support for PCs & Laptops
+      window.addEventListener('keydown', (e) => {
+        if (authGate.style.display === 'none') return;
+        if (checkLockoutStatus()) return;
+
+        if (e.key >= '0' && e.key <= '9') {
+          soundController.playClick();
+          if (enteredPin.length < 6) {
+            enteredPin += e.key;
+            gatePinInput.value = '•'.repeat(enteredPin.length);
+            if (enteredPin.length === 4) {
+              setTimeout(checkGatePin, 150);
+            }
+          }
+        } else if (e.key === 'Backspace') {
+          enteredPin = enteredPin.slice(0, -1);
+          gatePinInput.value = '•'.repeat(enteredPin.length);
+          gateErrorMsg.textContent = '';
+        } else if (e.key === 'Enter') {
+          checkGatePin();
+        }
+      });
+
       function checkGatePin() {
+        if (checkLockoutStatus()) return;
+
         if (window.gameStateManager.verifyAdminPin(enteredPin)) {
           sessionStorage.setItem('admin_logged_in', 'true');
+          sessionStorage.removeItem(FAILED_ATTEMPTS_KEY);
+          sessionStorage.removeItem(LOCKOUT_UNTIL_KEY);
           soundController.playSuccess();
           showDashboard();
         } else {
           soundController.playBuzzer();
-          gateErrorMsg.textContent = '❌ رمز سري خاطئ! يرجى المحاولة مجدداً.';
+          let fails = parseInt(sessionStorage.getItem(FAILED_ATTEMPTS_KEY) || '0', 10) + 1;
+          sessionStorage.setItem(FAILED_ATTEMPTS_KEY, fails);
+
           enteredPin = '';
           gatePinInput.value = '';
+
+          if (fails >= 5) {
+            sessionStorage.setItem(LOCKOUT_UNTIL_KEY, Date.now() + 60000);
+            checkLockoutStatus();
+          } else if (fails >= 3) {
+            sessionStorage.setItem(LOCKOUT_UNTIL_KEY, Date.now() + 30000);
+            checkLockoutStatus();
+          } else {
+            const left = 3 - fails;
+            gateErrorMsg.style.color = '#D32F2F';
+            gateErrorMsg.textContent = `❌ رمز سري خاطئ! (المحاولة ${fails} من 3 - تبقى ${left} محاولات قبل القفل)`;
+          }
         }
       }
 
@@ -475,7 +590,51 @@
         dashboard.style.display = 'block';
         renderAdminTeams();
         renderAdminQuestions();
+        updateAdminFreezeUI(window.gameStateManager.getState().isFrozen);
       }
+
+      // Freeze Controls
+      const btnToggleFreezeHeader = document.getElementById('btnToggleFreezeHeader');
+      const btnToggleFreezeTab = document.getElementById('btnToggleFreezeTab');
+      const freezeBtnIcon = document.getElementById('freezeBtnIcon');
+      const freezeBtnText = document.getElementById('freezeBtnText');
+
+      function updateAdminFreezeUI(isFrozen) {
+        if (isFrozen) {
+          if (freezeBtnIcon) freezeBtnIcon.textContent = '🟢';
+          if (freezeBtnText) freezeBtnText.textContent = 'اللعبة مجمدة (اضغط للاستئناف)';
+          if (btnToggleFreezeHeader) {
+            btnToggleFreezeHeader.style.background = '#FEF2F2';
+            btnToggleFreezeHeader.style.color = '#DC2626';
+            btnToggleFreezeHeader.style.borderColor = '#FCA5A5';
+          }
+          if (btnToggleFreezeTab) {
+            btnToggleFreezeTab.innerHTML = '🟢 استئناف اللعبة وإلغاء التجميد';
+            btnToggleFreezeTab.style.background = 'linear-gradient(135deg, #16A34A, #15803D)';
+          }
+        } else {
+          if (freezeBtnIcon) freezeBtnIcon.textContent = '❄️';
+          if (freezeBtnText) freezeBtnText.textContent = 'تجميد اللعبة (Freeze)';
+          if (btnToggleFreezeHeader) {
+            btnToggleFreezeHeader.style.background = '#E0F2FE';
+            btnToggleFreezeHeader.style.color = '#0284C7';
+            btnToggleFreezeHeader.style.borderColor = '#BAE6FD';
+          }
+          if (btnToggleFreezeTab) {
+            btnToggleFreezeTab.innerHTML = '❄️ تجميد اللعبة الآن';
+            btnToggleFreezeTab.style.background = 'linear-gradient(135deg, #0284C7, #0369A1)';
+          }
+        }
+      }
+
+      function handleFreezeToggle() {
+        const isNowFrozen = window.gameStateManager.toggleFreeze();
+        soundController.playClick();
+        updateAdminFreezeUI(isNowFrozen);
+      }
+
+      if (btnToggleFreezeHeader) btnToggleFreezeHeader.addEventListener('click', handleFreezeToggle);
+      if (btnToggleFreezeTab) btnToggleFreezeTab.addEventListener('click', handleFreezeToggle);
 
       logoutBtn.addEventListener('click', () => {
         sessionStorage.removeItem('admin_logged_in');
@@ -932,10 +1091,12 @@
       window.gameStateManager.subscribe((state) => {
         renderAdminTeams();
         updateLiveEvalWidget(state);
+        updateAdminFreezeUI(state.isFrozen);
       });
 
       // Initial check
       updateLiveEvalWidget(window.gameStateManager.getState());
+      updateAdminFreezeUI(window.gameStateManager.getState().isFrozen);
     });
   </script>
 </body>

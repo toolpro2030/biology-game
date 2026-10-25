@@ -286,6 +286,19 @@
         </div>
       </div>
     </div>
+  <!-- Fullscreen Game Frozen Overlay (Admin Pause Control) -->
+  <div id="gameFrozenOverlay" class="game-frozen-overlay" role="alertdialog" aria-modal="true" style="display: none;">
+    <div class="frozen-card">
+      <div class="frozen-icon-badge">❄️</div>
+      <h2 class="frozen-main-title" data-i18n="gameFrozenTitle">المسابقة متوقفة مؤقتاً بأمر المشرف</h2>
+      <p class="frozen-sub-text" data-i18n="gameFrozenSub">
+        قام الأستاذ المشرف بإيقاف وتجميد اللعبة مؤقتاً لمراجعة النقاط أو تقديم شرح تعليمي. يرجى الانتباه لشاشة العرض، وسيتم استئناف التحدي فوراً.
+      </p>
+      <div class="frozen-indicator">
+        <span class="pulse-freeze-dot"></span>
+        <span data-i18n="waitingAdminResume">في انتظار إشارة الاستئناف من المشرف...</span>
+      </div>
+    </div>
   </div>
 
   <!-- Scripts (With Real-Time Global Internet WebSockets) -->
